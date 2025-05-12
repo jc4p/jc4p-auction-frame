@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Win My Time - NFT Auction</title>
+    <meta name="fc:frame" content='{"version":"next","imageUrl":"https://images.kasra.codes/nft-card/nft.jpg","button":{"title":"View Auction","action":{"type":"launch_frame","name":"Win My Time - JC4P Auction","url":"http://localhost:5173","splashImageUrl":"https://images.kasra.codes/nft-card/splash.png","splashBackgroundColor":"#111111"}}}' />
+    <link rel="stylesheet" href="style.css">
+    <!-- TODO: Slot in a sweet retro/pixel font here! -->
+</head>
+<body>
+    <div class="container">
+        <header class="main-header">
+            <h1>Win My Time</h1>
+            <p class="subtitle">This NFT grants the owner 4 hours of my dev time, 8 for open source, delivered within a week.</p>
+        </header>
+
+        <main class="auction-core-view">
+            <section class="nft-display-area">
+                <div class="card-image-container">
+                    <img src="https://images.kasra.codes/nft-card/nft.jpg" alt="JC4P Dev Time NFT" id="auction-item-image">
+                </div>
+            </section>
+
+            <section class="primary-auction-info">
+                <div class="info-item price-display">
+                    <p><strong>Next Bid:</strong><span id="next-valid-bid">-.-- ETH</span></p>
+                </div>
+                <div class="info-item timer-display">
+                    <p><strong>Time Remaining:</strong><span id="time-left">--:--:--</span></p>
+                </div>
+            </section>
+
+            <section class="bid-action-area">
+                <h2>Place Bid</h2>
+                <div class="user-fid-display">
+                     <p><strong>Your FID:</strong> <span id="user-fid">Loading...</span></p>
+                </div>
+                <div class="bid-controls">
+                    <label for="bid-amount">Your Bid (ETH):</label>
+                    <input type="number" id="bid-amount" name="bid-amount" step="0.001" min="0.001" placeholder="0.000 ETH">
+                    <button id="place-bid-button">Submit Bid</button>
+                </div>
+                <div id="bid-status" class="status-message"></div>
+                <p class="bid-warning">Upon completion of auction we will discuss your idea and ensure it's feasible.</p>
+            </section>
+        
+            <aside class="detailed-auction-stats" id="detailed-stats-section">
+                <h2>Auction Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <p><strong>Current Highest Bid:</strong> <span id="highest-bid-actual">-.-- ETH</span></p>
+                    </div>
+                    <div class="stat-item">
+                        <p><strong>Highest Bidder FID:</strong> <span id="highest-bidder-fid">N/A</span></p>
+                    </div>
+                    <div class="stat-item">
+                        <p><strong>First Bidder FID:</strong> <span id="first-bidder-fid">N/A</span> <span id="first-bidder-badge"></span></p>
+                    </div>
+                    <div class="stat-item">
+                        <p><strong>Your Bid Count:</strong> <span id="user-bid-count">0</span></p>
+                    </div>
+                    <div class="stat-item">
+                        <p><strong>Total Bids:</strong> <span id="total-bids">0</span></p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

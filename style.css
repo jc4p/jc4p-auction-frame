@@ -1,0 +1,334 @@
+body {
+    font-family: 'Arial', sans-serif; /* Placeholder: Consider 'Press Start 2P', 'VT323', or other retro fonts */
+    background-color: #111; /* Stark black background */
+    color: #eee; /* Light text color for contrast */
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+.container {
+    background-color: #1a1a1a; /* Darker grey container */
+    border: 1px solid #333; /* Subtle border */
+    border-radius: 0; /* Sharp edges for retro feel */
+    box-shadow: 0 0 20px rgba(35, 35, 255, 0.3); /* Updated to #2323FF based glow */
+    margin: 20px;
+    padding-bottom: 20px; /* Add padding to bottom if footer removed */
+    width: 100%;
+    max-width: 650px;
+    overflow: hidden;
+}
+
+/* Headers & Footers */
+.main-header, .main-footer {
+    background-color: #0d0d0d; /* Very dark, almost black */
+    color: #f0f0f0;
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid #2323FF; /* Updated Blue accent */
+}
+
+.main-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 1.8em; /* Slightly reduced for shorter title */
+    color: #ffffff;
+    text-shadow: 0 0 5px #2323FF, 0 0 10px #2323FF; /* Updated Blue text effect */
+}
+
+.main-header .subtitle {
+    font-size: 0.9em; /* Slightly reduced for brevity */
+    color: #aaa;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.main-footer {
+    border-top: 1px solid #00ffff; /* Neon cyan accent */
+    border-bottom: none;
+    font-size: 0.9em;
+    padding: 15px 20px;
+    margin-top: 30px;
+    color: #00ffff;
+}
+
+/* Core Auction View */
+.auction-core-view {
+    padding: 15px; /* Reduced padding slightly */
+}
+
+.bid-action-area h2 { /* Targeting Place Bid title */
+    color: #FF3BEA; /* Updated to Pink/Magenta */
+    border-bottom: 1px solid #2323FF; /* Updated Blue */
+    padding-bottom: 10px;
+    margin-top: 0; /* Removed top margin */
+    margin-bottom: 15px; /* Adjusted bottom margin */
+    font-size: 1.5em; /* Slightly reduced */
+    text-transform: uppercase; 
+}
+
+/* NFT Display */
+.nft-display-area {
+    margin-bottom: 20px; /* Adjusted margin */
+}
+.card-image-container {
+    text-align: center;
+}
+#auction-item-image {
+    max-width: 80%; 
+    height: auto;
+    border-radius: 5px; 
+    border: none; /* Removed border */
+    box-shadow: 0 0 15px #2323FF; /* Updated Blue shadow */
+}
+
+/* Primary Info (Price, Timer) */
+.primary-auction-info {
+    display: flex;
+    flex-direction: column; /* Stack items vertically on mobile by default */
+    gap: 10px; /* Add gap between items when stacked */
+    align-items: center; /* Center items when stacked */
+    background-color: #222; 
+    padding: 15px;
+    margin-bottom: 20px; /* Adjusted margin */
+    border: 1px dashed #555;
+}
+.info-item {
+    text-align: center; /* Center text within each info item */
+}
+.info-item p {
+    margin: 0;
+    font-size: 1.1em; /* Adjusted font size */
+    line-height: 1.5; /* Ensure good spacing for <br> */
+}
+.info-item strong {
+    color: #FFC040	; /* Callout Text Color */
+    display: block; /* Make strong take full width for better stacking */
+    margin-bottom: 4px; /* Space between label and value */
+}
+
+/* Spans containing dynamic values */
+#next-valid-bid, 
+#time-left, 
+#user-fid, 
+#highest-bid-actual, 
+#highest-bidder-fid, 
+#first-bidder-fid, 
+#user-bid-count,
+#total-bids {
+    font-weight: bold;
+    font-size: 1.2em; 
+    color: #FF3BEA; /* Dynamic Value Color */
+}
+
+#time-left.urgent {
+    color: #ff3333 !important; /* Urgent timer remains red, !important to override */
+    animation: pulse 1s infinite;
+}
+
+/* Bid Area */
+.bid-action-area {
+    background-color: #252525;
+    padding: 15px; /* Adjusted padding */
+    border: 1px solid #444;
+}
+.user-fid-display p {
+    margin: 0 0 10px 0;
+    font-size: 0.9em;
+    color: #ccc; /* General text remains light grey */
+}
+.user-fid-display p strong { /* Specifically target the strong within this p if needed */
+    color: #FFC040	; /* Callout Text Color for "Your FID:" */
+}
+
+.bid-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.bid-controls label {
+    font-weight: bold;
+    color: #FFC040	; /* Callout Text Color */
+    font-size: 1em;
+}
+.bid-controls input[type="number"] {
+    padding: 12px;
+    background-color: #111;
+    border: 1px solid #2323FF; 
+    color: #fff; /* Input text color */
+    font-size: 1.1em;
+    border-radius: 0;
+}
+
+#place-bid-button {
+    background-color: #FF3BEA; /* Updated to Pink/Magenta */
+    color: #000; /* Black text for contrast */
+    border: none;
+    padding: 15px 20px;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    text-transform: uppercase;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 0 8px #FF3BEA; /* Updated shadow color */
+}
+#place-bid-button:hover {
+    background-color: #fff;
+    color: #FF3BEA; /* Updated to Pink/Magenta text on hover */
+    box-shadow: 0 0 15px #FF3BEA, 0 0 20px #fff; /* Updated shadow color */
+}
+#place-bid-button:active {
+    transform: scale(0.98);
+}
+
+.bid-warning {
+    font-style: normal; 
+    color: #ccc; 
+    text-align: center;
+    font-size: 0.85em; 
+    margin-top: 10px;
+    line-height: 1.4;
+}
+
+/* Stats Toggler & Section */
+.detailed-stats-toggler {
+    text-align: center;
+    margin: 20px 0;
+}
+#toggle-stats-button {
+    background-color: transparent;
+    color: #00aaff; /* Neon Blue */
+    border: 1px solid #00aaff; /* Neon Blue */
+    padding: 10px 15px;
+    font-size: 1em;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background-color 0.2s, color 0.2s;
+}
+#toggle-stats-button:hover {
+    background-color: #00aaff; /* Neon Blue */
+    color: #111;
+}
+
+.detailed-auction-stats {
+    background-color: #1c1c1c;
+    padding: 15px; /* Adjusted padding */
+    margin-top: 20px; /* Give it some space from bid area */
+    border-top: 1px dashed #444;
+}
+.detailed-auction-stats h2 {
+    color: #FF3BEA; /* Updated to Pink/Magenta */
+    border-bottom: 1px solid #2323FF; /* Updated Blue */
+    padding-bottom: 8px; /* Reduced padding */
+    margin-top: 0; /* Title at the top of its section */
+    margin-bottom: 15px;
+    font-size: 1.3em; /* Adjusted font size */
+    text-transform: uppercase; 
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Default to 1 column */
+    gap: 8px; /* Reduced gap */
+}
+.stat-item p {
+    margin: 3px 0; /* Reduced margin */
+    font-size: 0.9em; /* Adjusted font size */
+    color: #ccc; /* General text remains light grey */
+}
+.stat-item p strong { /* Specifically target the strong within stat items */
+    color: #FFC040	; /* Callout Text Color for labels like "Current Highest Bid:" */
+}
+#first-bidder-badge {
+    color: #ffdd00; 
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+/* Status Message */
+.status-message {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 0;
+    font-size: 0.9em; /* Adjusted font size */
+    text-align: center;
+    border: 1px solid transparent; 
+}
+
+/* Animation */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+/* Responsive Adjustments */
+@media (min-width: 500px) { /* Adjust breakpoint for primary info stacking */
+    .primary-auction-info {
+        flex-direction: row; /* Row for wider screens */
+        justify-content: space-around;
+        gap: 15px;
+    }
+    .info-item strong {
+        display: inline; /* Default display for wider screens */
+        margin-bottom: 0;
+    }
+    .info-item br { /* Hide the <br> on wider screens */
+        display: none;
+    }
+    .stats-grid {
+        grid-template-columns: 1fr 1fr; /* 2 columns for stats on wider screens */
+        gap: 15px;
+    }
+}
+
+@media (min-width: 768px) { 
+    .main-header h1 {
+        font-size: 2em; /* Restore larger H1 for desktop */
+    }
+    .main-header .subtitle {
+        font-size: 1em; /* Restore subtitle size */
+    }
+    .auction-core-view, .bid-action-area, .detailed-auction-stats {
+        padding: 20px; /* Restore larger padding */
+    }
+    .bid-action-area h2 {
+        font-size: 1.5em;
+        margin-bottom: 20px;
+    }
+    .detailed-auction-stats h2 {
+        font-size: 1.4em;
+        padding-bottom: 10px;
+    }
+    .info-item p {
+        font-size: 1.2em; /* Restore font size */
+    }
+    /* Dynamic value spans also get slightly larger on desktop */
+    #next-valid-bid, 
+    #time-left, 
+    #user-fid, 
+    #highest-bid-actual, 
+    #highest-bidder-fid, 
+    #first-bidder-fid, 
+    #user-bid-count,
+    #total-bids {
+        font-size: 1.3em; 
+    }
+    .bid-controls {
+        flex-direction: row;
+        align-items: center;
+    }
+    .bid-controls input[type="number"] {
+        flex-grow: 1;
+        margin-right: 10px;
+        margin-bottom: 0; 
+    }
+    .status-message, .stat-item p {
+        font-size: 1em; /* Restore font size */
+    }
+} 
