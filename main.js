@@ -91,16 +91,46 @@ async function init() {
         if (accounts && accounts.length > 0) {
             currentUser.account = accounts[0];
             console.log("User account successfully connected:", currentUser.account);
+
+            // Attempt to switch to Base network
+            try {
+                await ethProvider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x2105' }] // Base mainnet chainId (8453 decimal)
+                });
+                console.log("Successfully switched to or confirmed Base network.");
+            } catch (switchError) {
+                console.error("Error switching to Base network:", switchError);
+                if (bidStatusEl) bidStatusEl.textContent = "Network switch to Base failed or was rejected. Bidding unavailable.";
+                if (placeBidButton) placeBidButton.disabled = true;
+                // We might want to prevent further contract calls if network switch fails
+                frame.sdk.actions.ready();
+                return; 
+            }
+
         } else {
             console.error("Error: Could not get user account from wallet.");
             if (bidStatusEl) bidStatusEl.textContent = "Wallet connection required to bid.";
             if(placeBidButton) placeBidButton.disabled = true;
         }
 
-        await fetchContractConstants();
-        await fetchAuctionData();
-        await fetchUserStats();
-        await fetchTokenMetadata();
+        // await fetchContractConstants(); // Defer these until after potential return
+        // await fetchAuctionData();
+        // await fetchUserStats();
+        // await fetchTokenMetadata();
+
+        // Only proceed if account is available (which implies network switch was also attempted/successful)
+        if (currentUser.account) {
+            await fetchContractConstants();
+            await fetchAuctionData();
+            await fetchUserStats();
+            await fetchTokenMetadata();
+        } else {
+            // If no account, ensure UI reflects that data fetching won't proceed
+             if (nextValidBidEl) nextValidBidEl.textContent = "Connect Wallet";
+             if (timeLeftEl) timeLeftEl.textContent = "Connect Wallet";
+             // etc. for other elements that depend on fetched data
+        }
 
         if (placeBidButton && currentUser.account && currentUser.fid) {
              placeBidButton.addEventListener('click', handlePlaceBid);
