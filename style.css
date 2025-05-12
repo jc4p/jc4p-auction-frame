@@ -354,3 +354,25 @@ body {
 .neon {
   text-shadow: 0 0 6px #ff4dff, 0 0 12px #ff4dff;
 } 
+
+.bid-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.bid-input-container input {
+    flex: 1;
+    width: 150px;
+}
+
+.usd-value {
+    color: #666;
+    font-size: 0.9em;
+    min-width: 80px;
+    text-align: right;
+    font-family: var(--font-accent);
+} 

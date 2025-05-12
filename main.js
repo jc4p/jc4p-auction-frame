@@ -3,8 +3,9 @@ import { createWalletClient, http, encodeFunctionData, formatEther, parseEther, 
 import { base } from 'viem/chains';
 
 // --- Constants ---
-const CONTRACT_ADDRESS = '0x33a947b6F3448C1BEC58FEbEC56ACCC6BA200C17'; // Updated contract address
+const CONTRACT_ADDRESS = '0x6439a71784Fb9db63048f1a21F266405b0F908ac'; // Updated contract address
 const TOKEN_ID = 1; // From CONTRACT_INTEGRATION.md
+const MIDDLEWARE_URL = 'https://auction-api.kasra.codes';
 
 // --- DOM Elements ---
 const nextValidBidEl = document.getElementById('next-valid-bid');
@@ -12,9 +13,9 @@ const timeLeftEl = document.getElementById('time-left');
 const auctionItemImageEl = document.getElementById('auction-item-image');
 
 const userFidDisplayEl = document.getElementById('user-fid'); // For the main bid area
-const bidAmountInput = document.getElementById('bid-amount');
-const placeBidButton = document.getElementById('place-bid-button');
-const bidStatusEl = document.getElementById('bid-status');
+let bidAmountInput = document.getElementById('bid-amount');
+let placeBidButton = document.getElementById('place-bid-button');
+let bidStatusEl = document.getElementById('bid-status');
 
 // Detailed Stats Elements
 const highestBidActualEl = document.getElementById('highest-bid-actual');
@@ -31,6 +32,7 @@ let publicClient;
 let currentUser = { fid: null, account: null };
 let auctionEndTime = 0;
 let countdownInterval;
+let ethUsdPrice = 0; // Add ETH price state
 let contractState = {
     reservePrice: BigInt(0),
     minIncrementBps: BigInt(0),
@@ -78,10 +80,12 @@ const auctionAbi = [
 async function init() {
     console.log("Initializing Win My Time - NFT Auction Frame...");
     try {
+        // Fetch ETH price immediately
+        await fetchEthPrice();
+
         const context = await frame.sdk.context;
         if (!context || !context.user) {
             console.error('Error: Not in a Farcaster frame context or user data is unavailable.');
-            if (userFidDisplayEl) userFidDisplayEl.textContent = 'Frame Connection Error';
             if (placeBidButton) placeBidButton.disabled = true;
             if (bidStatusEl) bidStatusEl.textContent = "Frame connection issue. Bidding unavailable.";
             frame.sdk.actions.ready();
@@ -91,10 +95,34 @@ async function init() {
         let user = context.user;
         if (user && user.user) user = user.user;
         currentUser.fid = user.fid;
-        if (userFidDisplayEl) {
-            userFidDisplayEl.textContent = user.fid ? user.fid.toString() : 'Not Found';
-            // Text after FID span, if any, can be cleared or standardized if needed
+
+        // Set up event listeners once
+        if (bidAmountInput) {
+            bidAmountInput.addEventListener('input', updateBidUsdValue);
         }
+        
+        if (placeBidButton) {
+            console.log('Setting up bid button handler');
+            placeBidButton.addEventListener('click', async (e) => {
+                e.preventDefault();
+                console.log('Bid button clicked - Event received');
+                console.log('Button state:', {
+                    disabled: placeBidButton.disabled,
+                    text: placeBidButton.textContent,
+                    visible: placeBidButton.offsetParent !== null
+                });
+                console.log('Current user state:', {
+                    account: currentUser.account,
+                    fid: currentUser.fid,
+                    ethProvider: !!ethProvider,
+                    viemClient: !!viemClient
+                });
+                await handlePlaceBid();
+            });
+        }
+
+        // Update the bid area with initial values
+        updateBidActionArea();
 
         ethProvider = await frame.sdk.wallet.ethProvider;
         if (!ethProvider) {
@@ -151,13 +179,6 @@ async function init() {
              if (userBidCountEl) userBidCountEl.textContent = "N/A (Connect Wallet)";
         }
 
-        if (placeBidButton && currentUser.account && currentUser.fid) {
-             placeBidButton.addEventListener('click', handlePlaceBid);
-        } else if (placeBidButton) {
-            placeBidButton.disabled = true; 
-            console.warn("Place bid button disabled due to missing user account or FID.")
-        }
-
         frame.sdk.actions.ready();
         console.log("Win My Time - NFT Auction Frame is ready.");
 
@@ -181,15 +202,17 @@ function calculateNextValidBid() {
 
 function updatePrimaryDisplay() {
     const nextBidWei = calculateNextValidBid();
-    if (nextValidBidEl) nextValidBidEl.textContent = `${formatEther(nextBidWei)} ETH`;
+    if (nextValidBidEl) nextValidBidEl.textContent = formatPriceWithUsd(nextBidWei);
     
-    // Set default bid amount in input field
     if (bidAmountInput) {
-        bidAmountInput.value = formatEther(nextBidWei); 
-        bidAmountInput.min = formatEther(nextBidWei); // Ensure user can't bid lower than required
+        const minBidEth = formatEther(nextBidWei);
+        bidAmountInput.value = minBidEth;
+        bidAmountInput.min = "0.001";
+        bidAmountInput.placeholder = `${minBidEth} ETH`;
+        updateBidUsdValue();
     }
 
-    if (highestBidActualEl) highestBidActualEl.textContent = `${formatEther(contractState.highestBid)} ETH`;
+    if (highestBidActualEl) highestBidActualEl.textContent = formatPriceWithUsd(contractState.highestBid);
 }
 
 function updateCountdown() {
@@ -358,24 +381,41 @@ async function fetchUserStats() {
 
 // --- Contract Write Functions ---
 async function handlePlaceBid() {
+    console.log('handlePlaceBid called - Starting bid process');
     if (!ethProvider || !viemClient || !currentUser.account || !currentUser.fid) {
+        console.log('Missing requirements:', { 
+            ethProvider: !!ethProvider, 
+            viemClient: !!viemClient, 
+            account: currentUser.account, 
+            fid: currentUser.fid 
+        });
         if (bidStatusEl) bidStatusEl.textContent = "Wallet or FID not connected. Please connect to bid.";
         return;
     }
-    if (!bidAmountInput || !placeBidButton || !bidStatusEl) return;
+    if (!bidAmountInput || !placeBidButton || !bidStatusEl) {
+        console.log('Missing DOM elements:', { 
+            bidAmountInput: !!bidAmountInput, 
+            placeBidButton: !!placeBidButton, 
+            bidStatusEl: !!bidStatusEl 
+        });
+        return;
+    }
 
     const bidAmountEthText = bidAmountInput.value;
+    console.log('Processing bid amount:', bidAmountEthText);
     let bidAmountWei;
     try {
         bidAmountWei = parseEther(bidAmountEthText);
         if (bidAmountWei <= BigInt(0)) throw new Error("Bid amount must be greater than zero.");
     } catch (e) {
+        console.error('Bid amount error:', e);
         bidStatusEl.textContent = "Invalid bid amount. Please enter a valid number.";
         bidStatusEl.style.color = '#e63946'; 
         return;
     }
     
     const nextMinBidWei = calculateNextValidBid();
+    console.log('Next minimum bid:', formatEther(nextMinBidWei));
     if (bidAmountWei < nextMinBidWei) {
         bidStatusEl.textContent = `Bid is below minimum. Minimum: ${formatEther(nextMinBidWei)} ETH.`;
         bidStatusEl.style.color = '#e63946';
@@ -385,18 +425,28 @@ async function handlePlaceBid() {
     placeBidButton.disabled = true;
     placeBidButton.textContent = "Submitting...";
     bidStatusEl.textContent = "Processing transaction...";
-    bidStatusEl.style.color = '#00ffff'; // Using existing cyan for processing
+    bidStatusEl.style.color = '#00ffff';
 
     try {
+        console.log('Preparing transaction data');
         const data = encodeFunctionData({
-            abi: auctionAbi, functionName: 'placeBid', args: [BigInt(currentUser.fid)]
+            abi: auctionAbi, 
+            functionName: 'placeBid', 
+            args: [BigInt(currentUser.fid)]
         });
 
+        console.log('Sending transaction');
         const txHash = await ethProvider.request({
             method: 'eth_sendTransaction',
-            params: [{ from: currentUser.account, to: CONTRACT_ADDRESS, data, value: '0x' + bidAmountWei.toString(16) }]
+            params: [{ 
+                from: currentUser.account, 
+                to: CONTRACT_ADDRESS, 
+                data, 
+                value: '0x' + bidAmountWei.toString(16) 
+            }]
         });
 
+        console.log('Transaction sent:', txHash);
         bidStatusEl.textContent = `Transaction submitted. Tx: ${txHash.substring(0,10)}...`;
         bidStatusEl.style.color = '#4CAF50'; 
         placeBidButton.textContent = "Processing...";
@@ -422,6 +472,94 @@ async function handlePlaceBid() {
         placeBidButton.textContent = "Submit Bid";
         placeBidButton.disabled = false;
     } 
+}
+
+// Add function to fetch ETH price
+async function fetchEthPrice() {
+    try {
+        const response = await fetch(MIDDLEWARE_URL + '/api/eth-price');
+        if (!response.ok) throw new Error('Failed to fetch ETH price');
+        const data = await response.json();
+        ethUsdPrice = data.price;
+        updateAllPriceDisplays();
+        updateBidUsdValue(); // Update USD value for current bid input
+    } catch (error) {
+        console.error('Error fetching ETH price:', error);
+    }
+}
+
+// Add function to format price with USD
+function formatPriceWithUsd(ethAmount) {
+    const ethFormatted = formatEther(ethAmount);
+    // Only show USD if ETH amount is greater than 0
+    if (parseFloat(ethFormatted) === 0) {
+        return `${ethFormatted} ETH`;
+    }
+    const usdValue = parseFloat(ethUsdPrice) * parseFloat(ethFormatted);
+    return `${ethFormatted} ETH (≈$${usdValue.toFixed(2)})`;
+}
+
+// Add function to update all price displays
+function updateAllPriceDisplays() {
+    updatePrimaryDisplay();
+}
+
+// Update the HTML structure in the bid action area
+function updateBidActionArea() {
+    const bidActionArea = document.querySelector('.bid-action-area');
+    if (!bidActionArea) return;
+
+    const nextBidWei = calculateNextValidBid();
+    const minBidEth = formatEther(nextBidWei);
+    
+    // Update input value and attributes
+    if (bidAmountInput) {
+        bidAmountInput.value = minBidEth;
+        bidAmountInput.min = "0.001";
+        bidAmountInput.placeholder = `${minBidEth} ETH`;
+        
+        // Ensure the USD value span exists and update it
+        let bidUsdValue = document.getElementById('bid-usd-value');
+        if (!bidUsdValue) {
+            // Create a container for the input and USD value if it doesn't exist
+            let inputContainer = bidAmountInput.parentElement;
+            if (!inputContainer || !inputContainer.classList.contains('bid-input-container')) {
+                inputContainer = document.createElement('div');
+                inputContainer.className = 'bid-input-container';
+                inputContainer.style.display = 'flex';
+                inputContainer.style.alignItems = 'center';
+                inputContainer.style.gap = '12px';
+                bidAmountInput.parentNode.insertBefore(inputContainer, bidAmountInput);
+                inputContainer.appendChild(bidAmountInput);
+            }
+            
+            bidUsdValue = document.createElement('span');
+            bidUsdValue.id = 'bid-usd-value';
+            bidUsdValue.className = 'usd-value';
+            bidUsdValue.style.fontSize = '1.1em';
+            bidUsdValue.style.color = '#666';
+            bidUsdValue.style.display = 'flex';
+            bidUsdValue.style.alignItems = 'center';
+            inputContainer.appendChild(bidUsdValue);
+        }
+        updateBidUsdValue();
+    }
+
+    // Update button state
+    if (placeBidButton) {
+        placeBidButton.disabled = !currentUser.account || !currentUser.fid;
+    }
+}
+
+// Update the updateBidUsdValue function to be more robust
+function updateBidUsdValue() {
+    const bidAmountInput = document.getElementById('bid-amount');
+    const bidUsdValue = document.getElementById('bid-usd-value');
+    if (!bidAmountInput || !bidUsdValue) return;
+
+    const ethAmount = parseFloat(bidAmountInput.value) || 0;
+    const usdValue = ethAmount * parseFloat(ethUsdPrice);
+    bidUsdValue.textContent = usdValue > 0 ? `≈$${usdValue.toFixed(2)}` : '';
 }
 
 // --- Start the app ---

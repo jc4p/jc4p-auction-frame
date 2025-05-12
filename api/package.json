@@ -1,0 +1,15 @@
+{
+  "name": "auction-api",
+  "version": "0.0.0",
+  "devDependencies": {
+    "wrangler": "^4.14.4"
+  },
+  "private": true,
+  "scripts": {
+    "start": "wrangler dev",
+    "deploy": "wrangler publish"
+  },
+  "dependencies": {
+    "hono": "^4.7.9"
+  }
+}

@@ -1,0 +1,8 @@
+name = "auction-api"
+main = "src/index.js"
+compatibility_date = "2025-05-12"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "02b1d3a562a544bcbbcc1edcb68cbf6b"
+
