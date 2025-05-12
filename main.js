@@ -133,15 +133,6 @@ async function init() {
                 handlePlaceBid();
             };
             console.log('Click handler attached');
-            
-            // Enable the button if we have both account and FID
-            if (currentUser.account && currentUser.fid) {
-                console.log('Enabling bid button - user is connected');
-                placeBidButton.disabled = false;
-            } else {
-                console.log('Bid button remains disabled - missing account or FID');
-                placeBidButton.disabled = true;
-            }
         } else {
             console.error('placeBidButton element not found!');
         }
@@ -479,10 +470,10 @@ async function handlePlaceBid() {
         setTimeout(() => { 
             fetchAuctionRenderData();
             fetchUserStats();
-            bidStatusEl.textContent = "Bid status: Confirmed or check wallet.";
+            bidStatusEl.textContent = "Bid submitted!";
             placeBidButton.textContent = "Submit Bid";
             placeBidButton.disabled = false;
-        }, 9000);
+        }, 5000);
 
     } catch (error) {
         console.error("Error during bid placement:", error);
@@ -568,17 +559,6 @@ function updateBidActionArea() {
             inputContainer.appendChild(bidUsdValue);
         }
         updateBidUsdValue();
-    }
-
-    // Update button state
-    if (placeBidButton) {
-        const shouldEnable = currentUser.account && currentUser.fid;
-        console.log('Updating bid button state:', { 
-            shouldEnable, 
-            hasAccount: !!currentUser.account, 
-            hasFid: !!currentUser.fid 
-        });
-        placeBidButton.disabled = !shouldEnable;
     }
 }
 
