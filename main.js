@@ -3,7 +3,7 @@ import { createWalletClient, http, encodeFunctionData, formatEther, parseEther, 
 import { base } from 'viem/chains';
 
 // --- Constants ---
-const CONTRACT_ADDRESS = '0x6439a71784Fb9db63048f1a21F266405b0F908ac'; // Updated contract address
+const CONTRACT_ADDRESS = '0x6439a71784fb9db63048f1a21f266405b0f908ac'; // Updated contract address
 const TOKEN_ID = 1; // From CONTRACT_INTEGRATION.md
 const MIDDLEWARE_URL = 'https://auction-api.kasra.codes';
 
@@ -327,13 +327,8 @@ async function fetchAuctionRenderData() {
         if (firstBidderFidEl) {
             if (contractState.hasFirstBid && firstBidderFIDOut > 0) {
                 firstBidderFidEl.textContent = firstBidderFIDOut.toString();
-                if (firstBidderBadgeEl) {
-                    firstBidderBadgeEl.textContent = "(First Bidder)";
-                    firstBidderBadgeEl.style.display = 'inline';
-                }
             } else {
                 firstBidderFidEl.textContent = 'N/A';
-                if (firstBidderBadgeEl) firstBidderBadgeEl.style.display = 'none';
             }
         }
         
