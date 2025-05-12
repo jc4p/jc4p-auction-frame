@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Audiowide&display=swap');
 
 :root {
-  --font-accent: 'Orbitron', sans-serif;
+  --font-accent: 'Audiowide', sans-serif;
 }
 
 body {
@@ -44,7 +44,6 @@ body {
     color: #ffffff;
     text-shadow: 0 0 5px #2323FF, 0 0 10px #2323FF; /* Updated Blue text effect */
     font-family: var(--font-accent);
-    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -79,7 +78,6 @@ body {
     font-size: 1.5em; /* Slightly reduced */
     text-transform: uppercase; 
     font-family: var(--font-accent);
-    font-weight: 700;
     letter-spacing: 0.05em;
 }
 
@@ -136,8 +134,6 @@ body {
     font-size: 1.2em; 
     color: #FF3BEA; /* Dynamic Value Color */
     font-family: var(--font-accent);
-    font-weight: 700; /* Orbitron needs 700 for bold */
-    /* text-transform: uppercase; */ /* Numbers usually aren't uppercased */
     letter-spacing: 0.05em;
 }
 
@@ -188,14 +184,10 @@ body {
     padding: 15px 20px;
     text-align: center;
     font-size: 1.2em;
-    font-weight: bold;
-    text-transform: uppercase;
     border-radius: 0;
     cursor: pointer;
     transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
-    box-shadow: 0 0 8px #FF3BEA; /* Updated shadow color */
     font-family: var(--font-accent);
-    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -223,16 +215,15 @@ body {
     margin: 20px 0;
 }
 #toggle-stats-button {
-    background-color: transparent;
-    color: #00aaff; /* Neon Blue */
-    border: 1px solid #00aaff; /* Neon Blue */
-    padding: 10px 15px;
+    background-color: #FF3BEA; /* Updated to Pink/Magenta for place-bid */
+    color: #000; /* Black text for contrast for place-bid */
+    border: none;
+    padding: 15px 20px;
     font-size: 1em;
     cursor: pointer;
     border-radius: 0;
     transition: background-color 0.2s, color 0.2s;
     font-family: var(--font-accent);
-    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -256,7 +247,6 @@ body {
     font-size: 1.5em; /* Slightly reduced */
     text-transform: uppercase; 
     font-family: var(--font-accent);
-    font-weight: 700;
     letter-spacing: 0.05em;
 }
 .stats-grid {
