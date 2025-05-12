@@ -3,7 +3,7 @@ import { createWalletClient, http, encodeFunctionData, formatEther, parseEther, 
 import { base } from 'viem/chains';
 
 // --- Constants ---
-const CONTRACT_ADDRESS = '0xa3bcabb39b280f5878571e6451dbbfcc1c1554b2'; // From CONTRACT_INTEGRATION.md
+const CONTRACT_ADDRESS = '0x33a947b6F3448C1BEC58FEbEC56ACCC6BA200C17'; // Updated contract address
 const TOKEN_ID = 1; // From CONTRACT_INTEGRATION.md
 
 // --- DOM Elements ---
@@ -53,7 +53,25 @@ const auctionAbi = [
     { name: 'reservePrice', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
     { name: 'minIncrementBps', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
     { name: 'hasFirstBid', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-    { name: 'totalBids', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] }
+    { name: 'totalBids', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+    {
+        name: 'getAuctionRenderData',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [{ name: '_tokenId', type: 'uint256' }],
+        outputs: [
+            { type: 'uint256', name: 'reservePriceOut' },
+            { type: 'uint256', name: 'minIncrementBpsOut' },
+            { type: 'uint256', name: 'endTimeOut' },
+            { type: 'address', name: 'highestBidderAddressOut' },
+            { type: 'uint256', name: 'highestBidOut' },
+            { type: 'bool',    name: 'hasFirstBidOut' },
+            { type: 'uint64',  name: 'firstBidderFIDOut' },
+            { type: 'uint256', name: 'totalBidsOut' },
+            { type: 'string',  name: 'tokenURIDataOut' },
+            { type: 'uint64',  name: 'fidOfHighestBidderOut' }
+        ]
+    }
 ];
 
 // --- Initialization ---
@@ -123,15 +141,14 @@ async function init() {
 
         // Only proceed if account is available (which implies network switch was also attempted/successful)
         if (currentUser.account) {
-            await fetchContractConstants();
-            await fetchAuctionData();
+            await fetchAuctionRenderData();
             await fetchUserStats();
-            await fetchTokenMetadata();
         } else {
-            // If no account, ensure UI reflects that data fetching won't proceed
-             if (nextValidBidEl) nextValidBidEl.textContent = "Connect Wallet";
-             if (timeLeftEl) timeLeftEl.textContent = "Connect Wallet";
-             // etc. for other elements that depend on fetched data
+            // If no account, still try to fetch public auction data
+            await fetchAuctionRenderData();
+             if (nextValidBidEl) nextValidBidEl.textContent = "Connect Wallet for full info";
+             if (timeLeftEl) timeLeftEl.textContent = "Connect Wallet for full info";
+             if (userBidCountEl) userBidCountEl.textContent = "N/A (Connect Wallet)";
         }
 
         if (placeBidButton && currentUser.account && currentUser.fid) {
@@ -193,7 +210,7 @@ function updateCountdown() {
         timeLeftEl.textContent = "Auction Ending...";
         if(countdownInterval) clearInterval(countdownInterval);
         if(placeBidButton) placeBidButton.disabled = true;
-        fetchAuctionData(); 
+        fetchAuctionRenderData(); 
         return;
     }
 
@@ -218,99 +235,99 @@ function updateCountdown() {
 }
 
 // --- Contract Read Functions ---
-async function fetchContractConstants() {
+async function fetchAuctionRenderData() {
+    console.log("Fetching auction render data...");
     if (!publicClient) {
-        console.warn("Public client not available for fetchContractConstants");
+        console.warn("Public client not available for fetchAuctionRenderData");
+        // Update UI to indicate error
         if (nextValidBidEl) nextValidBidEl.textContent = "RPC Error";
-        return;
-    }
-    try {
-        console.log("Fetching contract constants (reserve, minIncrementBps)...");
-
-        contractState.reservePrice = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'reservePrice'
-        });
-
-        contractState.minIncrementBps = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'minIncrementBps'
-        });
-
-        console.log(`Reserve: ${formatEther(contractState.reservePrice)} ETH, MinIncrementBPS: ${contractState.minIncrementBps.toString()}`);
-    } catch(error) {
-        console.error("Error fetching contract constants:", error);
-        if (nextValidBidEl) nextValidBidEl.textContent = "Error";
-    }
-}
-
-async function fetchAuctionData() {
-    console.log("Fetching auction data...");
-    if (!publicClient) {
-        console.warn("Public client not available for fetchAuctionData");
         if (timeLeftEl) timeLeftEl.textContent = "RPC Error";
+        if (auctionItemImageEl) auctionItemImageEl.alt = "Error loading image data";
         return;
     }
-    try {
-        const endTimeFromContract = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'endTime'
-        });
-        auctionEndTime = Number(endTimeFromContract);
 
+    try {
+        const data = await publicClient.readContract({
+            address: CONTRACT_ADDRESS,
+            abi: auctionAbi,
+            functionName: 'getAuctionRenderData',
+            args: [BigInt(TOKEN_ID)]
+        });
+
+        // Destructure the returned data array based on the ABI outputs order
+        const [
+            reservePriceOut,
+            minIncrementBpsOut,
+            endTimeOut,
+            highestBidderAddressOut,
+            highestBidOut,
+            hasFirstBidOut,
+            firstBidderFIDOut,
+            totalBidsOut,
+            tokenURIDataOut,
+            fidOfHighestBidderOut
+        ] = data;
+
+        // Update contractState
+        contractState.reservePrice = reservePriceOut;
+        contractState.minIncrementBps = minIncrementBpsOut;
+        contractState.highestBid = highestBidOut;
+        contractState.highestBidder = highestBidderAddressOut; // Storing the address
+        contractState.hasFirstBid = hasFirstBidOut;
+        contractState.totalBids = totalBidsOut;
+
+        // Update auction end time and countdown
+        auctionEndTime = Number(endTimeOut);
         if (countdownInterval) clearInterval(countdownInterval);
-        updateCountdown();
+        updateCountdown(); 
         countdownInterval = setInterval(updateCountdown, 1000);
 
-        const auctionInfo = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getAuctionInfo'
-        });
-        const [highestBidderAddr, highestBidWei] = auctionInfo;
-        contractState.highestBid = highestBidWei;
-        contractState.highestBidder = highestBidderAddr;
-
-        if (highestBidderFidEl && highestBidderAddr !== zeroAddress) {
-            try {
-                const bidderStats = await publicClient.readContract({
-                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getBidderStats', args: [highestBidderAddr]
-                });
-                highestBidderFidEl.textContent = bidderStats[1].toString();
-            } catch (fidError) {
-                console.warn(`Could not fetch FID for highest bidder ${highestBidderAddr}:`, fidError);
-                highestBidderFidEl.textContent = 'N/A';
-            }
-        } else if (highestBidderFidEl) {
-            highestBidderFidEl.textContent = 'N/A';
-        }
-
-        contractState.hasFirstBid = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'hasFirstBid'
-        });
-
+        // Update UI elements
+        if (highestBidderFidEl) highestBidderFidEl.textContent = fidOfHighestBidderOut > 0 ? fidOfHighestBidderOut.toString() : 'N/A';
+        
         if (firstBidderFidEl) {
-            if (contractState.hasFirstBid) {
-                const fid = await publicClient.readContract({
-                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'firstBidderFID'
-                });
-                firstBidderFidEl.textContent = fid.toString();
+            if (contractState.hasFirstBid && firstBidderFIDOut > 0) {
+                firstBidderFidEl.textContent = firstBidderFIDOut.toString();
                 if (firstBidderBadgeEl) {
                     firstBidderBadgeEl.textContent = "(First Bidder)";
                     firstBidderBadgeEl.style.display = 'inline';
                 }
             } else {
                 firstBidderFidEl.textContent = 'N/A';
-                 if (firstBidderBadgeEl) firstBidderBadgeEl.style.display = 'none';
+                if (firstBidderBadgeEl) firstBidderBadgeEl.style.display = 'none';
             }
         }
-
-        contractState.totalBids = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'totalBids'
-        });
+        
         if(totalBidsEl) totalBidsEl.textContent = contractState.totalBids.toString();
 
-        updatePrimaryDisplay();
+        // Process and update token metadata (image)
+        if (auctionItemImageEl && tokenURIDataOut) {
+            if (tokenURIDataOut.startsWith('data:application/json;base64,')) {
+                const metadata = JSON.parse(atob(tokenURIDataOut.substring('data:application/json;base64,'.length)));
+                if (metadata.image) {
+                    auctionItemImageEl.src = metadata.image;
+                } else {
+                     console.warn("Token metadata missing image URL.");
+                }
+            } else if (tokenURIDataOut.startsWith('http')) { // Assuming direct image URL if not base64 json
+                 auctionItemImageEl.src = tokenURIDataOut;
+            } else {
+                console.warn("Token URI is not in expected base64 JSON or direct HTTPS format.");
+            }
+        } else if (auctionItemImageEl) {
+            console.warn("Token URI data not found in getAuctionRenderData response.");
+            auctionItemImageEl.alt = "Image not available";
+        }
+
+        updatePrimaryDisplay(); // Update price, bid input, and highest bid display
+
+        console.log("Auction render data processed successfully.");
 
     } catch (error) {
-        console.error("Error fetching auction data:", error);
+        console.error("Error fetching auction render data:", error);
         if (nextValidBidEl) nextValidBidEl.textContent = "Error";
         if (timeLeftEl) timeLeftEl.textContent = "Error";
+        if (auctionItemImageEl && auctionItemImageEl.alt) auctionItemImageEl.alt = "Error loading image data";
     }
 }
 
@@ -336,36 +353,6 @@ async function fetchUserStats() {
     } catch (error) {
         console.error("Error fetching user stats:", error);
         if (userBidCountEl) userBidCountEl.textContent = "Error";
-    }
-}
-
-async function fetchTokenMetadata() {
-    if (!publicClient || !auctionItemImageEl) {
-        console.warn("Public client or image element not available for fetchTokenMetadata");
-        return;
-    }
-    console.log("Fetching token metadata for token ID:", TOKEN_ID);
-    try {
-        const uri = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'tokenURI', args: [BigInt(TOKEN_ID)]
-        });
-        console.log("Token URI:", uri);
-
-        if (uri && uri.startsWith('data:application/json;base64,')) {
-            const metadata = JSON.parse(atob(uri.substring('data:application/json;base64,'.length)));
-            console.log("Token Metadata:", metadata);
-            if (metadata.image) {
-                auctionItemImageEl.src = metadata.image;
-                // Potentially update alt text from metadata.name if it aligns with "JC4P Exclusive Time NFT"
-                // auctionItemImageEl.alt = metadata.name || "JC4P Exclusive Time NFT";
-            }
-            // Potentially update other UI elements with name/description if needed
-        } else {
-            console.warn("Token URI is not in the expected base64 format or is missing.");
-            // Fallback or keep placeholder image
-        }
-    } catch (error) {
-        console.error("Error fetching token metadata:", error);
     }
 }
 
@@ -415,7 +402,7 @@ async function handlePlaceBid() {
         placeBidButton.textContent = "Processing...";
         
         setTimeout(() => { 
-            fetchAuctionData();
+            fetchAuctionRenderData();
             fetchUserStats();
             bidStatusEl.textContent = "Bid status: Confirmed or check wallet.";
             placeBidButton.textContent = "Submit Bid";
