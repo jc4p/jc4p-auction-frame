@@ -155,14 +155,6 @@ body {
     padding: 15px;
     border: 1px solid #ddd;
 }
-.user-fid-display p {
-    margin: 0 0 10px 0;
-    font-size: 0.9em;
-    color: #444;
-}
-.user-fid-display p strong {
-    color: #7e7ee9;
-}
 
 .bid-controls {
     display: flex;
