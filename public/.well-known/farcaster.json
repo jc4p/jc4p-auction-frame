@@ -1,0 +1,17 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjk3NzIzMywidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweGE2N0JhMDI4MTIzMWVCOUUyZWE0Y0Y5Nzg5NGMwYjBiNUI4MDFDYzYifQ",
+    "payload": "eyJkb21haW4iOiJhdWN0aW9uLmthc3JhLmNvZGVzIn0",
+    "signature": "MHgyNDQ0ZjM3OTA0OWNiOTliMDNmN2JkMDg5ZjFmY2E1MWJlYTc1N2UyODBkZjMzYmJjNDU2Njc0NGM1MjY5M2YyMjc0OGNiYjUxOGZmOTc5NGI3ZWY0NjcxYWVmNzc1ODE1M2U4NmVlODA1MTQ5ZTAwNDIzZGFlYTBkMTQ2NjIzYTFi"
+  },
+  "frame": {
+    "version": "1",
+    "name": "Win My Time - JC4P Auction",
+    "iconUrl": "https://cover-art.kasra.codes/jc4p_auction_square.png",
+    "homeUrl": "https://auction.kasra.codes",
+    "imageUrl": "https://cover-art.kasra.codes/jc4p_auction_rectangle_two.png",
+    "buttonTitle": "View Auction",
+    "splashImageUrl": "https://cover-art.kasra.codes/jc4p_auction_square.png",
+    "splashBackgroundColor": "#FFFFFF"
+  }
+}
