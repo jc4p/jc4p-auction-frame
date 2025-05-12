@@ -12,7 +12,6 @@ const nextValidBidEl = document.getElementById('next-valid-bid');
 const timeLeftEl = document.getElementById('time-left');
 const auctionItemImageEl = document.getElementById('auction-item-image');
 
-const userFidDisplayEl = document.getElementById('user-fid'); // For the main bid area
 let bidAmountInput = document.getElementById('bid-amount');
 let placeBidButton = document.getElementById('place-bid-button');
 let bidStatusEl = document.getElementById('bid-status');
@@ -95,6 +94,7 @@ async function init() {
         let user = context.user;
         if (user && user.user) user = user.user;
         currentUser.fid = user.fid;
+        console.log("User FID:", currentUser.fid); // Add FID logging
 
         // Set up event listeners once
         if (bidAmountInput) {
@@ -184,7 +184,7 @@ async function init() {
 
     } catch (error) {
         console.error("Initialization error:", error);
-        if (userFidDisplayEl && userFidDisplayEl.querySelector('span')) userFidDisplayEl.querySelector('span').textContent = 'Error';
+        if (userBidCountEl) userBidCountEl.textContent = "Error";
         if (bidStatusEl) bidStatusEl.textContent = `Initialization Error: ${error.message}`.substring(0, 70);
         try { frame.sdk.actions.ready(); } catch (e) { console.error("Error calling frame.sdk.actions.ready after failed initialization:", e); }
     }
