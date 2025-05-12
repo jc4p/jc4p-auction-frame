@@ -124,37 +124,13 @@ async function init() {
         
         if (placeBidButton) {
             console.log('Setting up bid button handler');
-            
-            // Remove any existing listeners by cloning
-            const newButton = placeBidButton.cloneNode(true);
-            placeBidButton.parentNode.replaceChild(newButton, placeBidButton);
-            placeBidButton = newButton;
-            
-            // Add our main listener
-            placeBidButton.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Bid button clicked - Event received');
-                console.log('Button state:', {
-                    disabled: placeBidButton.disabled,
-                    text: placeBidButton.textContent,
-                    visible: placeBidButton.offsetParent !== null,
-                    element: placeBidButton
-                });
-                console.log('Current user state:', {
-                    account: currentUser.account,
-                    fid: currentUser.fid,
-                    ethProvider: !!ethProvider,
-                    viemClient: !!viemClient
-                });
-                await handlePlaceBid();
-            });
+            placeBidButton.addEventListener('click', handlePlaceBid);
         }
 
         // Update the bid area with initial values
         updateBidActionArea();
 
-        ethProvider = await frame.sdk.wallet.ethProvider;
+        ethProvider = frame.sdk.wallet.ethProvider;
         if (!ethProvider) {
             console.error("Error: ethProvider is not available.");
             if (bidStatusEl) bidStatusEl.textContent = "Wallet provider not found. Bidding unavailable.";
