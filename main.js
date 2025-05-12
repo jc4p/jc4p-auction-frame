@@ -124,7 +124,17 @@ async function init() {
         
         if (placeBidButton) {
             console.log('Setting up bid button handler');
-            placeBidButton.addEventListener('click', handlePlaceBid);
+            console.log('Button element:', placeBidButton);
+            
+            // Add the click handler directly
+            placeBidButton.onclick = (e) => {
+                console.log('Button clicked!');
+                e.preventDefault();
+                handlePlaceBid();
+            };
+            console.log('Click handler attached');
+        } else {
+            console.error('placeBidButton element not found!');
         }
 
         // Update the bid area with initial values
