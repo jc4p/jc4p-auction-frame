@@ -125,76 +125,31 @@ async function init() {
         if (placeBidButton) {
             console.log('Setting up bid button handler');
             
-            // Test if button is clickable
-            placeBidButton.onclick = (e) => {
-                console.log('Direct onclick handler triggered');
-            };
-            
-            // Add a capture phase listener to see if event is being stopped
-            placeBidButton.addEventListener('click', (e) => {
-                console.log('Capture phase click event');
-            }, true);
+            // Remove any existing listeners by cloning
+            const newButton = placeBidButton.cloneNode(true);
+            placeBidButton.parentNode.replaceChild(newButton, placeBidButton);
+            placeBidButton = newButton;
             
             // Add our main listener
             placeBidButton.addEventListener('click', async (e) => {
-                console.log('Bid button clicked - Event received');
-                console.log('Event details:', {
-                    type: e.type,
-                    target: e.target,
-                    currentTarget: e.currentTarget,
-                    eventPhase: e.eventPhase,
-                    defaultPrevented: e.defaultPrevented,
-                    stopPropagation: e.stopPropagation,
-                    stopImmediatePropagation: e.stopImmediatePropagation
-                });
-                
                 e.preventDefault();
                 e.stopPropagation();
-                
+                console.log('Bid button clicked - Event received');
                 console.log('Button state:', {
                     disabled: placeBidButton.disabled,
                     text: placeBidButton.textContent,
                     visible: placeBidButton.offsetParent !== null,
-                    element: placeBidButton,
-                    computedStyle: window.getComputedStyle(placeBidButton),
-                    rect: placeBidButton.getBoundingClientRect()
+                    element: placeBidButton
                 });
-                
                 console.log('Current user state:', {
                     account: currentUser.account,
                     fid: currentUser.fid,
                     ethProvider: !!ethProvider,
                     viemClient: !!viemClient
                 });
-                
                 await handlePlaceBid();
             });
-            
-            // Add a listener to the document to see if event bubbles
-            document.addEventListener('click', (e) => {
-                if (e.target === placeBidButton) {
-                    console.log('Click event bubbled to document');
-                }
-            });
-        } else {
-            console.error('Place bid button not found in DOM');
         }
-
-        // Add a mutation observer to watch for button changes
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'childList' && 
-                    (mutation.target.id === 'place-bid-button' || 
-                     mutation.target.contains(document.getElementById('place-bid-button')))) {
-                    console.log('Button DOM changed:', mutation);
-                }
-            });
-        });
-        
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
 
         // Update the bid area with initial values
         updateBidActionArea();
@@ -620,9 +575,13 @@ function updateBidActionArea() {
         updateBidUsdValue();
     }
 
-    // Update button state
+    // Update button state without recreating it
     if (placeBidButton) {
         placeBidButton.disabled = !currentUser.account || !currentUser.fid;
+        // Only update text if it's not already set
+        if (placeBidButton.textContent !== 'Submit Bid') {
+            placeBidButton.textContent = 'Submit Bid';
+        }
     }
 }
 
