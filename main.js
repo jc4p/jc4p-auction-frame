@@ -133,6 +133,15 @@ async function init() {
                 handlePlaceBid();
             };
             console.log('Click handler attached');
+            
+            // Enable the button if we have both account and FID
+            if (currentUser.account && currentUser.fid) {
+                console.log('Enabling bid button - user is connected');
+                placeBidButton.disabled = false;
+            } else {
+                console.log('Bid button remains disabled - missing account or FID');
+                placeBidButton.disabled = true;
+            }
         } else {
             console.error('placeBidButton element not found!');
         }
@@ -561,13 +570,15 @@ function updateBidActionArea() {
         updateBidUsdValue();
     }
 
-    // Update button state without recreating it
+    // Update button state
     if (placeBidButton) {
-        placeBidButton.disabled = !currentUser.account || !currentUser.fid;
-        // Only update text if it's not already set
-        if (placeBidButton.textContent !== 'Submit Bid') {
-            placeBidButton.textContent = 'Submit Bid';
-        }
+        const shouldEnable = currentUser.account && currentUser.fid;
+        console.log('Updating bid button state:', { 
+            shouldEnable, 
+            hasAccount: !!currentUser.account, 
+            hasFid: !!currentUser.fid 
+        });
+        placeBidButton.disabled = !shouldEnable;
     }
 }
 
