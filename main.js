@@ -1,5 +1,5 @@
 import * as frame from '@farcaster/frame-sdk';
-import { createWalletClient, http, encodeFunctionData, formatEther, parseEther, zeroAddress, createPublicClient, custom } from 'viem';
+import { createWalletClient, http, encodeFunctionData, formatEther, parseEther, zeroAddress, custom, decodeFunctionResult } from 'viem';
 import { base } from 'viem/chains';
 
 // --- Constants ---
@@ -27,7 +27,6 @@ const totalBidsEl = document.getElementById('total-bids');
 // --- Global State ---
 let viemClient;
 let ethProvider;
-let publicClient;
 let currentUser = { fid: null, account: null };
 let auctionEndTime = 0;
 let countdownInterval;
@@ -97,8 +96,6 @@ async function init() {
             if (bidStatusEl) bidStatusEl.textContent = "Wallet connection required to bid.";
             if(placeBidButton) placeBidButton.disabled = true;
         }
-
-        publicClient = createPublicClient({ chain: base, transport: custom(ethProvider) });
 
         await fetchContractConstants();
         await fetchAuctionData();
@@ -190,26 +187,41 @@ function updateCountdown() {
 
 // --- Contract Read Functions ---
 async function fetchContractConstants() {
-    if (!publicClient) {
-        console.warn("Public client not available for fetchContractConstants");
+    if (!ethProvider) {
+        console.warn("ethProvider not available for fetchContractConstants");
+        if (nextValidBidEl) nextValidBidEl.textContent = "Connect Wallet";
         return;
     }
     if (!currentUser.account) {
         console.warn("User account not available for fetchContractConstants. Required for provider.");
-        // Optionally update UI to indicate data cannot be loaded without wallet connection
         if (nextValidBidEl) nextValidBidEl.textContent = "Connect Wallet";
         return;
     }
     try {
         console.log("Fetching contract constants (reserve, minIncrementBps)...");
-        contractState.reservePrice = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'reservePrice',
-            account: currentUser.account
+
+        const reservePriceCallData = encodeFunctionData({
+            abi: auctionAbi, functionName: 'reservePrice'
         });
-        contractState.minIncrementBps = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'minIncrementBps',
-            account: currentUser.account
+        const reservePriceHex = await ethProvider.request({
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: reservePriceCallData, from: currentUser.account }, 'latest']
         });
+        contractState.reservePrice = decodeFunctionResult({
+            abi: auctionAbi, functionName: 'reservePrice', data: reservePriceHex
+        });
+
+        const minIncrementBpsCallData = encodeFunctionData({
+            abi: auctionAbi, functionName: 'minIncrementBps'
+        });
+        const minIncrementBpsHex = await ethProvider.request({
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: minIncrementBpsCallData, from: currentUser.account }, 'latest']
+        });
+        contractState.minIncrementBps = decodeFunctionResult({
+            abi: auctionAbi, functionName: 'minIncrementBps', data: minIncrementBpsHex
+        });
+
         console.log(`Reserve: ${formatEther(contractState.reservePrice)} ETH, MinIncrementBPS: ${contractState.minIncrementBps.toString()}`);
     } catch(error) {
         console.error("Error fetching contract constants:", error);
@@ -219,40 +231,58 @@ async function fetchContractConstants() {
 
 async function fetchAuctionData() {
     console.log("Fetching auction data...");
-    if (!publicClient) {
-        console.warn("Public client not available for fetchAuctionData");
+    if (!ethProvider) {
+        console.warn("ethProvider not available for fetchAuctionData");
         return;
     }
     if (!currentUser.account) {
         console.warn("User account not available for fetchAuctionData. Required for provider.");
         if (timeLeftEl) timeLeftEl.textContent = "Connect Wallet";
         if (highestBidActualEl) highestBidActualEl.textContent = "Connect Wallet";
-        // Update other relevant UI elements
         return;
     }
     try {
-        const endTimeFromContract = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'endTime',
-            account: currentUser.account
+        const endTimeCallData = encodeFunctionData({
+            abi: auctionAbi, functionName: 'endTime'
+        });
+        const endTimeHex = await ethProvider.request({
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: endTimeCallData, from: currentUser.account }, 'latest']
+        });
+        const endTimeFromContract = decodeFunctionResult({
+            abi: auctionAbi, functionName: 'endTime', data: endTimeHex
         });
         auctionEndTime = Number(endTimeFromContract);
+
         if (countdownInterval) clearInterval(countdownInterval);
-        updateCountdown(); 
+        updateCountdown();
         countdownInterval = setInterval(updateCountdown, 1000);
 
-        const auctionInfo = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getAuctionInfo',
-            account: currentUser.account
+        const auctionInfoCallData = encodeFunctionData({
+            abi: auctionAbi, functionName: 'getAuctionInfo'
+        });
+        const auctionInfoHex = await ethProvider.request({
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: auctionInfoCallData, from: currentUser.account }, 'latest']
+        });
+        const auctionInfo = decodeFunctionResult({
+            abi: auctionAbi, functionName: 'getAuctionInfo', data: auctionInfoHex
         });
         const [highestBidderAddr, highestBidWei] = auctionInfo;
         contractState.highestBid = highestBidWei;
-        contractState.highestBidder = highestBidderAddr; // Store for potential internal logic
+        contractState.highestBidder = highestBidderAddr;
 
         if (highestBidderFidEl && highestBidderAddr !== zeroAddress) {
             try {
-                const bidderStats = await publicClient.readContract({
-                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getBidderStats', args: [highestBidderAddr],
-                    account: currentUser.account
+                const bidderStatsCallData = encodeFunctionData({
+                    abi: auctionAbi, functionName: 'getBidderStats', args: [highestBidderAddr]
+                });
+                const bidderStatsHex = await ethProvider.request({
+                    method: 'eth_call',
+                    params: [{ to: CONTRACT_ADDRESS, data: bidderStatsCallData, from: currentUser.account }, 'latest']
+                });
+                const bidderStats = decodeFunctionResult({
+                    abi: auctionAbi, functionName: 'getBidderStats', data: bidderStatsHex
                 });
                 highestBidderFidEl.textContent = bidderStats[1].toString();
             } catch (fidError) {
@@ -262,36 +292,54 @@ async function fetchAuctionData() {
         } else if (highestBidderFidEl) {
             highestBidderFidEl.textContent = 'N/A';
         }
-        
-        contractState.hasFirstBid = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'hasFirstBid',
-            account: currentUser.account
+
+        const hasFirstBidCallData = encodeFunctionData({
+            abi: auctionAbi, functionName: 'hasFirstBid'
+        });
+        const hasFirstBidHex = await ethProvider.request({
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: hasFirstBidCallData, from: currentUser.account }, 'latest']
+        });
+        contractState.hasFirstBid = decodeFunctionResult({
+            abi: auctionAbi, functionName: 'hasFirstBid', data: hasFirstBidHex
         });
 
         if (firstBidderFidEl) {
             if (contractState.hasFirstBid) {
-                const fid = await publicClient.readContract({
-                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'firstBidderFID',
-                    account: currentUser.account
+                const firstBidderFIDCallData = encodeFunctionData({
+                    abi: auctionAbi, functionName: 'firstBidderFID'
+                });
+                const firstBidderFIDHex = await ethProvider.request({
+                    method: 'eth_call',
+                    params: [{ to: CONTRACT_ADDRESS, data: firstBidderFIDCallData, from: currentUser.account }, 'latest']
+                });
+                const fid = decodeFunctionResult({
+                    abi: auctionAbi, functionName: 'firstBidderFID', data: firstBidderFIDHex
                 });
                 firstBidderFidEl.textContent = fid.toString();
                 if (firstBidderBadgeEl) {
-                    firstBidderBadgeEl.textContent = "(First Bidder)"; // Simplified badge text
+                    firstBidderBadgeEl.textContent = "(First Bidder)";
                     firstBidderBadgeEl.style.display = 'inline';
                 }
             } else {
-                firstBidderFidEl.textContent = 'N/A'; // Standard N/A if no first bidder FID
+                firstBidderFidEl.textContent = 'N/A';
                  if (firstBidderBadgeEl) firstBidderBadgeEl.style.display = 'none';
             }
         }
-        
-        contractState.totalBids = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'totalBids',
-            account: currentUser.account
+
+        const totalBidsCallData = encodeFunctionData({
+            abi: auctionAbi, functionName: 'totalBids'
+        });
+        const totalBidsHex = await ethProvider.request({
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: totalBidsCallData, from: currentUser.account }, 'latest']
+        });
+        contractState.totalBids = decodeFunctionResult({
+            abi: auctionAbi, functionName: 'totalBids', data: totalBidsHex
         });
         if(totalBidsEl) totalBidsEl.textContent = contractState.totalBids.toString();
 
-        updatePrimaryDisplay(); // Update price and bid input
+        updatePrimaryDisplay();
 
     } catch (error) {
         console.error("Error fetching auction data:", error);
@@ -301,23 +349,25 @@ async function fetchAuctionData() {
 }
 
 async function fetchUserStats() {
-    if (!publicClient || !currentUser.account) {
+    if (!ethProvider || !currentUser.account) {
         if (userBidCountEl) userBidCountEl.textContent = "N/A (Connect Wallet)";
-        console.warn("Public client or user account not available for fetchUserStats.");
+        console.warn("ethProvider or user account not available for fetchUserStats.");
         return;
     }
     console.log(`Fetching stats for user: ${currentUser.account}`);
     try {
-        const stats = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getBidderStats', args: [currentUser.account],
-            account: currentUser.account
+        const userStatsCallData = encodeFunctionData({
+            abi: auctionAbi, functionName: 'getBidderStats', args: [currentUser.account]
+        });
+        const userStatsHex = await ethProvider.request({
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: userStatsCallData, from: currentUser.account }, 'latest']
+        });
+        const stats = decodeFunctionResult({
+            abi: auctionAbi, functionName: 'getBidderStats', data: userStatsHex
         });
         console.log("User Stats:", stats);
         if (userBidCountEl) userBidCountEl.textContent = stats[0].toString();
-        // User FID is already from context, but good to confirm:
-        // if (userFidDisplayEl && stats[1].toString() !== userFidDisplayEl.textContent) {
-        //     console.warn("Mismatch in user FID from context and contract stats");
-        // }
     } catch (error) {
         console.error("Error fetching user stats:", error);
         if (userBidCountEl) userBidCountEl.textContent = "Error";
@@ -325,20 +375,25 @@ async function fetchUserStats() {
 }
 
 async function fetchTokenMetadata() {
-    if (!publicClient || !auctionItemImageEl) {
-        console.warn("Public client or image element not available for fetchTokenMetadata");
+    if (!ethProvider || !auctionItemImageEl) {
+        console.warn("ethProvider or image element not available for fetchTokenMetadata");
         return;
     }
     if (!currentUser.account) {
         console.warn("User account not available for fetchTokenMetadata. Required for provider.");
-        // Potentially update UI, e.g., show placeholder or message for image
         return;
     }
     console.log("Fetching token metadata for token ID:", TOKEN_ID);
     try {
-        const uri = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'tokenURI', args: [BigInt(TOKEN_ID)],
-            account: currentUser.account
+        const tokenURICallData = encodeFunctionData({
+            abi: auctionAbi, functionName: 'tokenURI', args: [BigInt(TOKEN_ID)]
+        });
+        const tokenURIHex = await ethProvider.request({
+            method: 'eth_call',
+            params: [{ to: CONTRACT_ADDRESS, data: tokenURICallData, from: currentUser.account }, 'latest']
+        });
+        const uri = decodeFunctionResult({
+            abi: auctionAbi, functionName: 'tokenURI', data: tokenURIHex
         });
         console.log("Token URI:", uri);
 
