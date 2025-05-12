@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
 :root {
-  --font-accent: 'Orbitron', sans-serif;
+  --font-accent: 'VT323', monospace;
 }
 
 body {
@@ -44,7 +44,6 @@ body {
     color: #222;
     text-shadow: 0 0 5px rgba(35, 35, 255, 0.3), 0 0 10px rgba(35, 35, 255, 0.2);
     font-family: var(--font-accent);
-    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -80,7 +79,6 @@ body {
     font-size: 1.5em;
     text-transform: uppercase; 
     font-family: var(--font-accent);
-    font-weight: 700;
     letter-spacing: 0.05em;
 }
 
@@ -128,7 +126,6 @@ body {
 /* Spans containing dynamic values */
 #next-valid-bid, 
 #time-left {
-    font-weight: 700;
     font-size: 1.2em; 
     color: #FF3BEA;
     font-family: var(--font-accent);
@@ -195,7 +192,6 @@ body {
     cursor: pointer;
     transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
     font-family: var(--font-accent);
-    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
