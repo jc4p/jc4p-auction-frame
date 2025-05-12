@@ -467,13 +467,45 @@ async function handlePlaceBid() {
         bidStatusEl.style.color = '#4CAF50'; 
         placeBidButton.textContent = "Processing...";
         
-        setTimeout(() => { 
-            fetchAuctionRenderData();
-            fetchUserStats();
-            bidStatusEl.textContent = "Bid submitted!";
-            placeBidButton.textContent = "Submit Bid";
-            placeBidButton.disabled = false;
-        }, 5000);
+        // Subscribe to BidPlaced event
+        const unwatch = publicClient.watchEvent({
+            address: CONTRACT_ADDRESS,
+            event: {
+                type: 'event',
+                name: 'BidPlaced',
+                inputs: [
+                    { type: 'address', name: 'bidder', indexed: true },
+                    { type: 'uint256', name: 'amount' },
+                    { type: 'uint64', name: 'fid' }
+                ]
+            },
+            onLogs: (logs) => {
+                // Check if this is our transaction
+                const ourBid = logs.find(log => 
+                    log.transactionHash === txHash && 
+                    log.args.bidder.toLowerCase() === currentUser.account.toLowerCase()
+                );
+                
+                if (ourBid) {
+                    console.log('Bid confirmed:', ourBid);
+                    fetchAuctionRenderData();
+                    fetchUserStats();
+                    bidStatusEl.textContent = "Bid submitted!";
+                    placeBidButton.textContent = "Submit Bid";
+                    unwatch(); // Stop watching after our bid is confirmed
+                }
+            },
+            onError: (error) => {
+                console.error('Error watching for bid event:', error);
+                // Fallback to timeout if event watching fails
+                setTimeout(() => {
+                    fetchAuctionRenderData();
+                    fetchUserStats();
+                    bidStatusEl.textContent = "Bid submitted!";
+                    placeBidButton.textContent = "Submit Bid";
+                }, 5000);
+            }
+        });
 
     } catch (error) {
         console.error("Error during bid placement:", error);
