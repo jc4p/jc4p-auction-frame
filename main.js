@@ -3,7 +3,7 @@ import { createWalletClient, http, encodeFunctionData, formatEther, parseEther, 
 import { base } from 'viem/chains';
 
 // --- Constants ---
-const CONTRACT_ADDRESS = '0x6439a71784fb9db63048f1a21f266405b0f908ac'; // Updated contract address
+const CONTRACT_ADDRESS = '0xB1e0d6ADdc6562bc9d8F7014374DA79535495Ff9'; // Updated contract address
 const TOKEN_ID = 1; // From CONTRACT_INTEGRATION.md
 const MIDDLEWARE_URL = 'https://auction-api.kasra.codes';
 
@@ -94,7 +94,6 @@ async function init() {
         const context = await frame.sdk.context;
         if (!context || !context.user) {
             console.error('Error: Not in a Farcaster frame context or user data is unavailable.');
-            if (placeBidButton) placeBidButton.disabled = true;
             if (bidStatusEl) bidStatusEl.textContent = "Frame connection issue. Bidding unavailable.";
             frame.sdk.actions.ready();
             return;
@@ -144,7 +143,6 @@ async function init() {
         if (!ethProvider) {
             console.error("Error: ethProvider is not available.");
             if (bidStatusEl) bidStatusEl.textContent = "Wallet provider not found. Bidding unavailable.";
-            if (placeBidButton) placeBidButton.disabled = true;
             frame.sdk.actions.ready();
             return;
         }
@@ -165,7 +163,6 @@ async function init() {
             } catch (switchError) {
                 console.error("Error switching to Base network:", switchError);
                 if (bidStatusEl) bidStatusEl.textContent = "Network switch to Base failed or was rejected. Bidding unavailable.";
-                if (placeBidButton) placeBidButton.disabled = true;
                 // We might want to prevent further contract calls if network switch fails
                 frame.sdk.actions.ready();
                 return; 
@@ -174,7 +171,6 @@ async function init() {
         } else {
             console.error("Error: Could not get user account from wallet.");
             if (bidStatusEl) bidStatusEl.textContent = "Wallet connection required to bid.";
-            if(placeBidButton) placeBidButton.disabled = true;
         }
 
         // Create a public client for read operations, connecting directly to a Base RPC
@@ -236,7 +232,6 @@ function updateCountdown() {
     if (auctionEndTime <= 0) {
         timeLeftEl.textContent = "Auction Ended";
         if(countdownInterval) clearInterval(countdownInterval);
-        if(placeBidButton) placeBidButton.disabled = true;
         if(bidAmountInput) bidAmountInput.disabled = true;
         // TODO: Implement post-auction view / winner display
         return;
@@ -248,7 +243,6 @@ function updateCountdown() {
     if (secondsRemaining === 0) {
         timeLeftEl.textContent = "Auction Ending...";
         if(countdownInterval) clearInterval(countdownInterval);
-        if(placeBidButton) placeBidButton.disabled = true;
         fetchAuctionRenderData(); 
         return;
     }
@@ -433,7 +427,6 @@ async function handlePlaceBid() {
         return;
     }
 
-    placeBidButton.disabled = true;
     placeBidButton.textContent = "Submitting...";
     bidStatusEl.textContent = "Processing transaction...";
     bidStatusEl.style.color = '#00ffff';
@@ -513,7 +506,6 @@ async function handlePlaceBid() {
         bidStatusEl.textContent = errorMsg;
         bidStatusEl.style.color = '#e63946';
         placeBidButton.textContent = "Submit Bid";
-        placeBidButton.disabled = false;
     } 
 }
 
