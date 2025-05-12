@@ -140,6 +140,8 @@ body {
     font-weight: bold;
     font-size: 1.2em; 
     color: #FF3BEA; 
+    font-family: var(--font-accent);
+    letter-spacing: 0.05em;
 }
 
 #time-left.urgent {
