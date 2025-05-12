@@ -118,7 +118,7 @@ body {
     color: #333;
 }
 .info-item strong {
-    color: #00E5FF;
+    color: #7e7ee9;
     display: block;
     margin-bottom: 4px;
 }
@@ -161,7 +161,7 @@ body {
     color: #444;
 }
 .user-fid-display p strong {
-    color: #00E5FF;
+    color: #7e7ee9;
 }
 
 .bid-controls {
@@ -172,7 +172,7 @@ body {
 }
 .bid-controls label {
     font-weight: bold;
-    color: #00E5FF;
+    color: #7e7ee9;
     font-size: 1em;
 }
 .bid-controls input[type="number"] {
@@ -259,7 +259,7 @@ body {
     color: #444;
 }
 .stat-item p strong {
-    color: #00E5FF;
+    color: #7e7ee9;
 }
 #first-bidder-badge {
     color: #ccaa00;
