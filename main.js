@@ -1,5 +1,5 @@
 import * as frame from '@farcaster/frame-sdk';
-import { createWalletClient, http, encodeFunctionData, formatEther, parseEther, zeroAddress, custom, decodeFunctionResult } from 'viem';
+import { createWalletClient, http, encodeFunctionData, formatEther, parseEther, zeroAddress, custom, decodeFunctionResult, createPublicClient } from 'viem';
 import { base } from 'viem/chains';
 
 // --- Constants ---
@@ -27,6 +27,7 @@ const totalBidsEl = document.getElementById('total-bids');
 // --- Global State ---
 let viemClient;
 let ethProvider;
+let publicClient;
 let currentUser = { fid: null, account: null };
 let auctionEndTime = 0;
 let countdownInterval;
@@ -114,10 +115,11 @@ async function init() {
             if(placeBidButton) placeBidButton.disabled = true;
         }
 
-        // await fetchContractConstants(); // Defer these until after potential return
-        // await fetchAuctionData();
-        // await fetchUserStats();
-        // await fetchTokenMetadata();
+        // Create a public client for read operations, connecting directly to a Base RPC
+        publicClient = createPublicClient({
+            chain: base,
+            transport: http() // Uses default public RPC from viem's base chain definition
+        });
 
         // Only proceed if account is available (which implies network switch was also attempted/successful)
         if (currentUser.account) {
@@ -217,39 +219,20 @@ function updateCountdown() {
 
 // --- Contract Read Functions ---
 async function fetchContractConstants() {
-    if (!ethProvider) {
-        console.warn("ethProvider not available for fetchContractConstants");
-        if (nextValidBidEl) nextValidBidEl.textContent = "Connect Wallet";
-        return;
-    }
-    if (!currentUser.account) {
-        console.warn("User account not available for fetchContractConstants. Required for provider.");
-        if (nextValidBidEl) nextValidBidEl.textContent = "Connect Wallet";
+    if (!publicClient) {
+        console.warn("Public client not available for fetchContractConstants");
+        if (nextValidBidEl) nextValidBidEl.textContent = "RPC Error";
         return;
     }
     try {
         console.log("Fetching contract constants (reserve, minIncrementBps)...");
 
-        const reservePriceCallData = encodeFunctionData({
-            abi: auctionAbi, functionName: 'reservePrice'
-        });
-        const reservePriceHex = await ethProvider.request({
-            method: 'eth_call',
-            params: [{ to: CONTRACT_ADDRESS, data: reservePriceCallData, from: currentUser.account }, 'latest']
-        });
-        contractState.reservePrice = decodeFunctionResult({
-            abi: auctionAbi, functionName: 'reservePrice', data: reservePriceHex
+        contractState.reservePrice = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'reservePrice'
         });
 
-        const minIncrementBpsCallData = encodeFunctionData({
-            abi: auctionAbi, functionName: 'minIncrementBps'
-        });
-        const minIncrementBpsHex = await ethProvider.request({
-            method: 'eth_call',
-            params: [{ to: CONTRACT_ADDRESS, data: minIncrementBpsCallData, from: currentUser.account }, 'latest']
-        });
-        contractState.minIncrementBps = decodeFunctionResult({
-            abi: auctionAbi, functionName: 'minIncrementBps', data: minIncrementBpsHex
+        contractState.minIncrementBps = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'minIncrementBps'
         });
 
         console.log(`Reserve: ${formatEther(contractState.reservePrice)} ETH, MinIncrementBPS: ${contractState.minIncrementBps.toString()}`);
@@ -261,26 +244,14 @@ async function fetchContractConstants() {
 
 async function fetchAuctionData() {
     console.log("Fetching auction data...");
-    if (!ethProvider) {
-        console.warn("ethProvider not available for fetchAuctionData");
-        return;
-    }
-    if (!currentUser.account) {
-        console.warn("User account not available for fetchAuctionData. Required for provider.");
-        if (timeLeftEl) timeLeftEl.textContent = "Connect Wallet";
-        if (highestBidActualEl) highestBidActualEl.textContent = "Connect Wallet";
+    if (!publicClient) {
+        console.warn("Public client not available for fetchAuctionData");
+        if (timeLeftEl) timeLeftEl.textContent = "RPC Error";
         return;
     }
     try {
-        const endTimeCallData = encodeFunctionData({
-            abi: auctionAbi, functionName: 'endTime'
-        });
-        const endTimeHex = await ethProvider.request({
-            method: 'eth_call',
-            params: [{ to: CONTRACT_ADDRESS, data: endTimeCallData, from: currentUser.account }, 'latest']
-        });
-        const endTimeFromContract = decodeFunctionResult({
-            abi: auctionAbi, functionName: 'endTime', data: endTimeHex
+        const endTimeFromContract = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'endTime'
         });
         auctionEndTime = Number(endTimeFromContract);
 
@@ -288,15 +259,8 @@ async function fetchAuctionData() {
         updateCountdown();
         countdownInterval = setInterval(updateCountdown, 1000);
 
-        const auctionInfoCallData = encodeFunctionData({
-            abi: auctionAbi, functionName: 'getAuctionInfo'
-        });
-        const auctionInfoHex = await ethProvider.request({
-            method: 'eth_call',
-            params: [{ to: CONTRACT_ADDRESS, data: auctionInfoCallData, from: currentUser.account }, 'latest']
-        });
-        const auctionInfo = decodeFunctionResult({
-            abi: auctionAbi, functionName: 'getAuctionInfo', data: auctionInfoHex
+        const auctionInfo = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getAuctionInfo'
         });
         const [highestBidderAddr, highestBidWei] = auctionInfo;
         contractState.highestBid = highestBidWei;
@@ -304,15 +268,8 @@ async function fetchAuctionData() {
 
         if (highestBidderFidEl && highestBidderAddr !== zeroAddress) {
             try {
-                const bidderStatsCallData = encodeFunctionData({
-                    abi: auctionAbi, functionName: 'getBidderStats', args: [highestBidderAddr]
-                });
-                const bidderStatsHex = await ethProvider.request({
-                    method: 'eth_call',
-                    params: [{ to: CONTRACT_ADDRESS, data: bidderStatsCallData, from: currentUser.account }, 'latest']
-                });
-                const bidderStats = decodeFunctionResult({
-                    abi: auctionAbi, functionName: 'getBidderStats', data: bidderStatsHex
+                const bidderStats = await publicClient.readContract({
+                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getBidderStats', args: [highestBidderAddr]
                 });
                 highestBidderFidEl.textContent = bidderStats[1].toString();
             } catch (fidError) {
@@ -323,28 +280,14 @@ async function fetchAuctionData() {
             highestBidderFidEl.textContent = 'N/A';
         }
 
-        const hasFirstBidCallData = encodeFunctionData({
-            abi: auctionAbi, functionName: 'hasFirstBid'
-        });
-        const hasFirstBidHex = await ethProvider.request({
-            method: 'eth_call',
-            params: [{ to: CONTRACT_ADDRESS, data: hasFirstBidCallData, from: currentUser.account }, 'latest']
-        });
-        contractState.hasFirstBid = decodeFunctionResult({
-            abi: auctionAbi, functionName: 'hasFirstBid', data: hasFirstBidHex
+        contractState.hasFirstBid = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'hasFirstBid'
         });
 
         if (firstBidderFidEl) {
             if (contractState.hasFirstBid) {
-                const firstBidderFIDCallData = encodeFunctionData({
-                    abi: auctionAbi, functionName: 'firstBidderFID'
-                });
-                const firstBidderFIDHex = await ethProvider.request({
-                    method: 'eth_call',
-                    params: [{ to: CONTRACT_ADDRESS, data: firstBidderFIDCallData, from: currentUser.account }, 'latest']
-                });
-                const fid = decodeFunctionResult({
-                    abi: auctionAbi, functionName: 'firstBidderFID', data: firstBidderFIDHex
+                const fid = await publicClient.readContract({
+                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'firstBidderFID'
                 });
                 firstBidderFidEl.textContent = fid.toString();
                 if (firstBidderBadgeEl) {
@@ -357,15 +300,8 @@ async function fetchAuctionData() {
             }
         }
 
-        const totalBidsCallData = encodeFunctionData({
-            abi: auctionAbi, functionName: 'totalBids'
-        });
-        const totalBidsHex = await ethProvider.request({
-            method: 'eth_call',
-            params: [{ to: CONTRACT_ADDRESS, data: totalBidsCallData, from: currentUser.account }, 'latest']
-        });
-        contractState.totalBids = decodeFunctionResult({
-            abi: auctionAbi, functionName: 'totalBids', data: totalBidsHex
+        contractState.totalBids = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'totalBids'
         });
         if(totalBidsEl) totalBidsEl.textContent = contractState.totalBids.toString();
 
@@ -379,22 +315,21 @@ async function fetchAuctionData() {
 }
 
 async function fetchUserStats() {
-    if (!ethProvider || !currentUser.account) {
-        if (userBidCountEl) userBidCountEl.textContent = "N/A (Connect Wallet)";
-        console.warn("ethProvider or user account not available for fetchUserStats.");
+    if (!publicClient) {
+        console.warn("Public client not available for fetchUserStats.");
+        if (userBidCountEl) userBidCountEl.textContent = "RPC Error";
         return;
     }
+    if (!currentUser.account) {
+        if (userBidCountEl) userBidCountEl.textContent = "N/A (Connect Wallet)";
+        console.warn("User account not available to identify for fetchUserStats.");
+        return;
+    }
+
     console.log(`Fetching stats for user: ${currentUser.account}`);
     try {
-        const userStatsCallData = encodeFunctionData({
-            abi: auctionAbi, functionName: 'getBidderStats', args: [currentUser.account]
-        });
-        const userStatsHex = await ethProvider.request({
-            method: 'eth_call',
-            params: [{ to: CONTRACT_ADDRESS, data: userStatsCallData, from: currentUser.account }, 'latest']
-        });
-        const stats = decodeFunctionResult({
-            abi: auctionAbi, functionName: 'getBidderStats', data: userStatsHex
+        const stats = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getBidderStats', args: [currentUser.account]
         });
         console.log("User Stats:", stats);
         if (userBidCountEl) userBidCountEl.textContent = stats[0].toString();
@@ -405,25 +340,14 @@ async function fetchUserStats() {
 }
 
 async function fetchTokenMetadata() {
-    if (!ethProvider || !auctionItemImageEl) {
-        console.warn("ethProvider or image element not available for fetchTokenMetadata");
-        return;
-    }
-    if (!currentUser.account) {
-        console.warn("User account not available for fetchTokenMetadata. Required for provider.");
+    if (!publicClient || !auctionItemImageEl) {
+        console.warn("Public client or image element not available for fetchTokenMetadata");
         return;
     }
     console.log("Fetching token metadata for token ID:", TOKEN_ID);
     try {
-        const tokenURICallData = encodeFunctionData({
-            abi: auctionAbi, functionName: 'tokenURI', args: [BigInt(TOKEN_ID)]
-        });
-        const tokenURIHex = await ethProvider.request({
-            method: 'eth_call',
-            params: [{ to: CONTRACT_ADDRESS, data: tokenURICallData, from: currentUser.account }, 'latest']
-        });
-        const uri = decodeFunctionResult({
-            abi: auctionAbi, functionName: 'tokenURI', data: tokenURIHex
+        const uri = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'tokenURI', args: [BigInt(TOKEN_ID)]
         });
         console.log("Token URI:", uri);
 
