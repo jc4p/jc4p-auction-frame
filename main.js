@@ -190,27 +190,50 @@ function updateCountdown() {
 
 // --- Contract Read Functions ---
 async function fetchContractConstants() {
-    if (!viemClient) return;
+    if (!publicClient) {
+        console.warn("Public client not available for fetchContractConstants");
+        return;
+    }
+    if (!currentUser.account) {
+        console.warn("User account not available for fetchContractConstants. Required for provider.");
+        // Optionally update UI to indicate data cannot be loaded without wallet connection
+        if (nextValidBidEl) nextValidBidEl.textContent = "Connect Wallet";
+        return;
+    }
     try {
         console.log("Fetching contract constants (reserve, minIncrementBps)...");
         contractState.reservePrice = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'reservePrice'
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'reservePrice',
+            account: currentUser.account
         });
         contractState.minIncrementBps = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'minIncrementBps'
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'minIncrementBps',
+            account: currentUser.account
         });
         console.log(`Reserve: ${formatEther(contractState.reservePrice)} ETH, MinIncrementBPS: ${contractState.minIncrementBps.toString()}`);
     } catch(error) {
         console.error("Error fetching contract constants:", error);
+        if (nextValidBidEl) nextValidBidEl.textContent = "Error";
     }
 }
 
 async function fetchAuctionData() {
     console.log("Fetching auction data...");
-    if (!viemClient) return;
+    if (!publicClient) {
+        console.warn("Public client not available for fetchAuctionData");
+        return;
+    }
+    if (!currentUser.account) {
+        console.warn("User account not available for fetchAuctionData. Required for provider.");
+        if (timeLeftEl) timeLeftEl.textContent = "Connect Wallet";
+        if (highestBidActualEl) highestBidActualEl.textContent = "Connect Wallet";
+        // Update other relevant UI elements
+        return;
+    }
     try {
         const endTimeFromContract = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'endTime'
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'endTime',
+            account: currentUser.account
         });
         auctionEndTime = Number(endTimeFromContract);
         if (countdownInterval) clearInterval(countdownInterval);
@@ -218,7 +241,8 @@ async function fetchAuctionData() {
         countdownInterval = setInterval(updateCountdown, 1000);
 
         const auctionInfo = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getAuctionInfo'
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getAuctionInfo',
+            account: currentUser.account
         });
         const [highestBidderAddr, highestBidWei] = auctionInfo;
         contractState.highestBid = highestBidWei;
@@ -227,7 +251,8 @@ async function fetchAuctionData() {
         if (highestBidderFidEl && highestBidderAddr !== zeroAddress) {
             try {
                 const bidderStats = await publicClient.readContract({
-                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getBidderStats', args: [highestBidderAddr]
+                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getBidderStats', args: [highestBidderAddr],
+                    account: currentUser.account
                 });
                 highestBidderFidEl.textContent = bidderStats[1].toString();
             } catch (fidError) {
@@ -239,13 +264,15 @@ async function fetchAuctionData() {
         }
         
         contractState.hasFirstBid = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'hasFirstBid'
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'hasFirstBid',
+            account: currentUser.account
         });
 
         if (firstBidderFidEl) {
             if (contractState.hasFirstBid) {
                 const fid = await publicClient.readContract({
-                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'firstBidderFID'
+                    address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'firstBidderFID',
+                    account: currentUser.account
                 });
                 firstBidderFidEl.textContent = fid.toString();
                 if (firstBidderBadgeEl) {
@@ -259,7 +286,8 @@ async function fetchAuctionData() {
         }
         
         contractState.totalBids = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'totalBids'
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'totalBids',
+            account: currentUser.account
         });
         if(totalBidsEl) totalBidsEl.textContent = contractState.totalBids.toString();
 
@@ -273,14 +301,16 @@ async function fetchAuctionData() {
 }
 
 async function fetchUserStats() {
-    if (!viemClient || !currentUser.account) {
+    if (!publicClient || !currentUser.account) {
         if (userBidCountEl) userBidCountEl.textContent = "N/A (Connect Wallet)";
+        console.warn("Public client or user account not available for fetchUserStats.");
         return;
     }
     console.log(`Fetching stats for user: ${currentUser.account}`);
     try {
         const stats = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getBidderStats', args: [currentUser.account]
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'getBidderStats', args: [currentUser.account],
+            account: currentUser.account
         });
         console.log("User Stats:", stats);
         if (userBidCountEl) userBidCountEl.textContent = stats[0].toString();
@@ -295,11 +325,20 @@ async function fetchUserStats() {
 }
 
 async function fetchTokenMetadata() {
-    if (!viemClient || !auctionItemImageEl) return;
+    if (!publicClient || !auctionItemImageEl) {
+        console.warn("Public client or image element not available for fetchTokenMetadata");
+        return;
+    }
+    if (!currentUser.account) {
+        console.warn("User account not available for fetchTokenMetadata. Required for provider.");
+        // Potentially update UI, e.g., show placeholder or message for image
+        return;
+    }
     console.log("Fetching token metadata for token ID:", TOKEN_ID);
     try {
         const uri = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'tokenURI', args: [BigInt(TOKEN_ID)]
+            address: CONTRACT_ADDRESS, abi: auctionAbi, functionName: 'tokenURI', args: [BigInt(TOKEN_ID)],
+            account: currentUser.account
         });
         console.log("Token URI:", uri);
 
