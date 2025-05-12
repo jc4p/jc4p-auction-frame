@@ -94,7 +94,18 @@ async function init() {
         let user = context.user;
         if (user && user.user) user = user.user;
         currentUser.fid = user.fid;
-        console.log("User FID:", currentUser.fid); // Add FID logging
+        console.log("User FID:", currentUser.fid);
+
+        // Get fresh references to DOM elements
+        bidAmountInput = document.getElementById('bid-amount');
+        placeBidButton = document.getElementById('place-bid-button');
+        bidStatusEl = document.getElementById('bid-status');
+
+        console.log('DOM Elements found:', {
+            bidAmountInput: !!bidAmountInput,
+            placeBidButton: !!placeBidButton,
+            bidStatusEl: !!bidStatusEl
+        });
 
         // Set up event listeners once
         if (bidAmountInput) {
@@ -103,13 +114,20 @@ async function init() {
         
         if (placeBidButton) {
             console.log('Setting up bid button handler');
+            // Remove any existing listeners
+            placeBidButton.replaceWith(placeBidButton.cloneNode(true));
+            // Get fresh reference after cloning
+            placeBidButton = document.getElementById('place-bid-button');
+            
             placeBidButton.addEventListener('click', async (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 console.log('Bid button clicked - Event received');
                 console.log('Button state:', {
                     disabled: placeBidButton.disabled,
                     text: placeBidButton.textContent,
-                    visible: placeBidButton.offsetParent !== null
+                    visible: placeBidButton.offsetParent !== null,
+                    element: placeBidButton
                 });
                 console.log('Current user state:', {
                     account: currentUser.account,
@@ -119,6 +137,8 @@ async function init() {
                 });
                 await handlePlaceBid();
             });
+        } else {
+            console.error('Place bid button not found in DOM');
         }
 
         // Update the bid area with initial values
