@@ -1,5 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+:root {
+  --font-accent: 'Orbitron', sans-serif;
+}
+
 body {
-    font-family: 'Arial', sans-serif; /* Placeholder: Consider 'Press Start 2P', 'VT323', or other retro fonts */
+    font-family: 'Arial', sans-serif; /* Neutral workhorse font for body copy */
     background-color: #111; /* Stark black background */
     color: #eee; /* Light text color for contrast */
     margin: 0;
@@ -37,6 +43,10 @@ body {
     font-size: 1.8em; /* Slightly reduced for shorter title */
     color: #ffffff;
     text-shadow: 0 0 5px #2323FF, 0 0 10px #2323FF; /* Updated Blue text effect */
+    font-family: var(--font-accent);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .main-header .subtitle {
@@ -68,6 +78,9 @@ body {
     margin-bottom: 15px; /* Adjusted bottom margin */
     font-size: 1.5em; /* Slightly reduced */
     text-transform: uppercase; 
+    font-family: var(--font-accent);
+    font-weight: 700;
+    letter-spacing: 0.05em;
 }
 
 /* NFT Display */
@@ -122,6 +135,10 @@ body {
     font-weight: bold;
     font-size: 1.2em; 
     color: #FF3BEA; /* Dynamic Value Color */
+    font-family: var(--font-accent);
+    font-weight: 700; /* Orbitron needs 700 for bold */
+    /* text-transform: uppercase; */ /* Numbers usually aren't uppercased */
+    letter-spacing: 0.05em;
 }
 
 #time-left.urgent {
@@ -177,6 +194,10 @@ body {
     cursor: pointer;
     transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
     box-shadow: 0 0 8px #FF3BEA; /* Updated shadow color */
+    font-family: var(--font-accent);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 #place-bid-button:hover {
     background-color: #fff;
@@ -210,6 +231,10 @@ body {
     cursor: pointer;
     border-radius: 0;
     transition: background-color 0.2s, color 0.2s;
+    font-family: var(--font-accent);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 #toggle-stats-button:hover {
     background-color: #00aaff; /* Neon Blue */
@@ -225,11 +250,14 @@ body {
 .detailed-auction-stats h2 {
     color: #FF3BEA; /* Updated to Pink/Magenta */
     border-bottom: 1px solid #2323FF; /* Updated Blue */
-    padding-bottom: 8px; /* Reduced padding */
-    margin-top: 0; /* Title at the top of its section */
-    margin-bottom: 15px;
-    font-size: 1.3em; /* Adjusted font size */
+    padding-bottom: 10px;
+    margin-top: 0; /* Removed top margin */
+    margin-bottom: 15px; /* Adjusted bottom margin */
+    font-size: 1.5em; /* Slightly reduced */
     text-transform: uppercase; 
+    font-family: var(--font-accent);
+    font-weight: 700;
+    letter-spacing: 0.05em;
 }
 .stats-grid {
     display: grid;
@@ -331,4 +359,9 @@ body {
     .status-message, .stat-item p {
         font-size: 1em; /* Restore font size */
     }
+} 
+
+/* Optional neon glow */
+.neon {
+  text-shadow: 0 0 6px #ff4dff, 0 0 12px #ff4dff;
 } 
