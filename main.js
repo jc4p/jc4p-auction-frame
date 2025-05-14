@@ -7,6 +7,8 @@ const CONTRACT_ADDRESS = '0xB1e0d6ADdc6562bc9d8F7014374DA79535495Ff9'; // Update
 const TOKEN_ID = 1; // From CONTRACT_INTEGRATION.md
 const MIDDLEWARE_URL = 'https://auction-api.kasra.codes';
 
+// Flags for manual override are removed as the auction is permanently over.
+
 // --- DOM Elements ---
 const nextValidBidEl = document.getElementById('next-valid-bid');
 const timeLeftEl = document.getElementById('time-left');
@@ -37,6 +39,7 @@ let contractState = {
     minIncrementBps: BigInt(0),
     highestBid: BigInt(0),
     highestBidder: zeroAddress, // Store address for internal logic if needed
+    highestBidderFID: BigInt(0), // Added to store FID of highest bidder from render data
     hasFirstBid: false,
     totalBids: BigInt(0)
 };
@@ -80,191 +83,88 @@ console.log('Script starting - DOM ready state:', document.readyState);
 
 // --- Initialization ---
 async function init() {
-    console.log("Initializing Win My Time - NFT Auction Frame...");
-    console.log('Initial DOM state:', {
-        buttonExists: !!document.getElementById('place-bid-button'),
-        buttonDisabled: document.getElementById('place-bid-button')?.disabled,
-        buttonVisible: document.getElementById('place-bid-button')?.offsetParent !== null
-    });
+    console.log("Initializing Win My Time - NFT Auction Frame (Auction OVER state)...");
+
+    // Get fresh references to DOM elements early
+    bidAmountInput = document.getElementById('bid-amount');
+    placeBidButton = document.getElementById('place-bid-button');
+    bidStatusEl = document.getElementById('bid-status');
+    // other DOM elements like timeLeftEl, nextValidBidEl, etc., are referenced in setAuctionEndedUI
 
     try {
-        // Fetch ETH price immediately
-        await fetchEthPrice();
-
-        const context = await frame.sdk.context;
-        if (!context || !context.user) {
-            console.error('Error: Not in a Farcaster frame context or user data is unavailable.');
-            if (bidStatusEl) bidStatusEl.textContent = "Frame connection issue. Bidding unavailable.";
-            frame.sdk.actions.ready();
-            return;
-        }
-
-        let user = context.user;
-        if (user && user.user) user = user.user;
-        currentUser.fid = user.fid;
-        console.log("User FID:", currentUser.fid);
-
-        // Get fresh references to DOM elements
-        bidAmountInput = document.getElementById('bid-amount');
-        placeBidButton = document.getElementById('place-bid-button');
-        bidStatusEl = document.getElementById('bid-status');
-
-        console.log('DOM Elements found:', {
-            bidAmountInput: !!bidAmountInput,
-            placeBidButton: !!placeBidButton,
-            bidStatusEl: !!bidStatusEl,
-            buttonHTML: placeBidButton?.outerHTML
-        });
-
-        // Set up event listeners once
-        if (bidAmountInput) {
-            bidAmountInput.addEventListener('input', updateBidUsdValue);
-        }
-        
-        if (placeBidButton) {
-            console.log('Setting up bid button handler');
-            console.log('Button element:', placeBidButton);
-            
-            // Add the click handler directly
-            placeBidButton.onclick = (e) => {
-                console.log('Button clicked!');
-                e.preventDefault();
-                handlePlaceBid();
-            };
-            console.log('Click handler attached');
-        } else {
-            console.error('placeBidButton element not found!');
-        }
-
-        // Update the bid area with initial values
-        updateBidActionArea();
-
-        ethProvider = frame.sdk.wallet.ethProvider;
-        if (!ethProvider) {
-            console.error("Error: ethProvider is not available.");
-            if (bidStatusEl) bidStatusEl.textContent = "Wallet provider not found. Bidding unavailable.";
-            frame.sdk.actions.ready();
-            return;
-        }
-        
-        viemClient = createWalletClient({ chain: base, transport: custom(ethProvider) });
-        const accounts = await ethProvider.request({ method: 'eth_requestAccounts' });
-        if (accounts && accounts.length > 0) {
-            currentUser.account = accounts[0];
-            console.log("User account successfully connected:", currentUser.account);
-
-            // Attempt to switch to Base network
-            try {
-                await ethProvider.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x2105' }] // Base mainnet chainId (8453 decimal)
-                });
-                console.log("Successfully switched to or confirmed Base network.");
-            } catch (switchError) {
-                console.error("Error switching to Base network:", switchError);
-                if (bidStatusEl) bidStatusEl.textContent = "Network switch to Base failed or was rejected. Bidding unavailable.";
-                // We might want to prevent further contract calls if network switch fails
-                frame.sdk.actions.ready();
-                return; 
-            }
-
-        } else {
-            console.error("Error: Could not get user account from wallet.");
-            if (bidStatusEl) bidStatusEl.textContent = "Wallet connection required to bid.";
-        }
+        await fetchEthPrice(); // Still useful for displaying bid amounts in USD if needed for final stats
 
         // Create a public client for read operations, connecting directly to a Base RPC
+        // This is needed to fetch the final auction state.
         publicClient = createPublicClient({
             chain: base,
-            transport: http() // Uses default public RPC from viem's base chain definition
+            transport: http() 
         });
 
-        // Only proceed if account is available (which implies network switch was also attempted/successful)
-        if (currentUser.account) {
-            await fetchAuctionRenderData();
-            await fetchUserStats();
+        if (publicClient) {
+            await fetchAuctionRenderData(); // Fetch latest data to get winner FID etc.
         } else {
-            // If no account, still try to fetch public auction data
-            await fetchAuctionRenderData();
-             if (nextValidBidEl) nextValidBidEl.textContent = "Connect Wallet for full info";
-             if (timeLeftEl) timeLeftEl.textContent = "Connect Wallet for full info";
-             if (userBidCountEl) userBidCountEl.textContent = "N/A (Connect Wallet)";
+            console.warn("Public client could not be created. Final auction data might be unavailable.");
+        }
+        
+        // Attempt to get Farcaster context for user FID if available (for user stats, less critical now)
+        try {
+            const context = await frame.sdk.context;
+            if (context && context.user) {
+                let user = context.user;
+                if (user && user.user) user = user.user;
+                currentUser.fid = user.fid;
+                console.log("User FID (for stats):", currentUser.fid);
+
+                // If we have a user, try to get their account for stats
+                ethProvider = frame.sdk.wallet.ethProvider;
+                if (ethProvider) {
+                    const accounts = await ethProvider.request({ method: 'eth_requestAccounts' });
+                    if (accounts && accounts.length > 0) {
+                        currentUser.account = accounts[0];
+                        // We don't need to switch network if auction is over and not placing bids
+                        await fetchUserStats(); // Fetch user-specific stats if they are connected
+                    }
+                }
+            }
+        } catch (fcError) {
+            console.warn("Could not get Farcaster context or user data:", fcError);
         }
 
+
+        setAuctionEndedUI(); // Set the UI to the permanent "Auction Ended" state
+
         frame.sdk.actions.ready();
-        console.log("Win My Time - NFT Auction Frame is ready.");
+        console.log("Win My Time - NFT Auction Frame is ready (Auction OVER state).");
 
     } catch (error) {
-        console.error("Initialization error:", error);
-        if (userBidCountEl) userBidCountEl.textContent = "Error";
-        if (bidStatusEl) bidStatusEl.textContent = `Initialization Error: ${error.message}`.substring(0, 70);
-        try { frame.sdk.actions.ready(); } catch (e) { console.error("Error calling frame.sdk.actions.ready after failed initialization:", e); }
+        console.error("Initialization error (Auction OVER state):", error);
+        // Fallback UI for error state
+        if (timeLeftEl) timeLeftEl.textContent = "Error";
+        if (bidStatusEl) bidStatusEl.textContent = "Error loading auction information.";
+        if (bidAmountInput) bidAmountInput.disabled = true;
+        if (placeBidButton) placeBidButton.textContent = 'Error';
+        try { frame.sdk.actions.ready(); } catch (e) { /* ignore */ }
     }
 }
 
-// --- UI Update & Interaction Functions ---
+// --- UI Update & Interaction Functions (Simplified for Auction OVER state) ---
 function calculateNextValidBid() {
-    if (!contractState.hasFirstBid) {
-        return contractState.reservePrice;
-    }
-    // increment = highestBid * minIncrementBps / 10000
-    const increment = (contractState.highestBid * contractState.minIncrementBps) / BigInt(10000);
-    return contractState.highestBid + increment;
+    // Not relevant as auction is over.
+    return BigInt(0);
 }
 
 function updatePrimaryDisplay() {
-    const nextBidWei = calculateNextValidBid();
-    if (nextValidBidEl) nextValidBidEl.textContent = formatPriceWithUsd(nextBidWei);
-    
-    if (bidAmountInput) {
-        const minBidEth = formatEther(nextBidWei);
-        bidAmountInput.value = minBidEth;
-        bidAmountInput.min = "0.001";
-        bidAmountInput.placeholder = `${minBidEth} ETH`;
-        updateBidUsdValue();
-    }
-
+    // This function might still be called by fetchAuctionRenderData
+    // Ensure it reflects the ended state or does nothing harmful.
     if (highestBidActualEl) highestBidActualEl.textContent = formatPriceWithUsd(contractState.highestBid);
+    // nextValidBidEl is handled by setAuctionEndedUI
 }
 
 function updateCountdown() {
-    if (!timeLeftEl) return;
-    if (auctionEndTime <= 0) {
-        timeLeftEl.textContent = "Auction Ended";
-        if(countdownInterval) clearInterval(countdownInterval);
-        if(bidAmountInput) bidAmountInput.disabled = true;
-        // TODO: Implement post-auction view / winner display
-        return;
-    }
-
-    const now = Math.floor(Date.now() / 1000);
-    const secondsRemaining = Math.max(0, Number(auctionEndTime) - now);
-
-    if (secondsRemaining === 0) {
-        timeLeftEl.textContent = "Auction Ending...";
-        if(countdownInterval) clearInterval(countdownInterval);
-        fetchAuctionRenderData(); 
-        return;
-    }
-
-    const days = Math.floor(secondsRemaining / (3600 * 24));
-    const hours = Math.floor((secondsRemaining % (3600 * 24)) / 3600);
-    const minutes = Math.floor((secondsRemaining % 3600) / 60);
-    const seconds = Math.floor(secondsRemaining % 60);
-    
-    let timeString = "";
-    if (days > 0) timeString += `${days}d `;
-    timeString += `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    timeLeftEl.textContent = timeString;
-
-    // Make timer urgent if < softCloseWindow (e.g., 5 minutes = 300s)
-    // This needs softCloseWindow from contract or a fixed value
-    // For now, just an example if less than 1 hour
-    if (secondsRemaining < 3600 && timeLeftEl) {
-        timeLeftEl.classList.add('urgent');
-    } else if (timeLeftEl) {
-        timeLeftEl.classList.remove('urgent');
-    }
+    // Auction is over, no countdown needed.
+    if (timeLeftEl) timeLeftEl.textContent = "Bidding is complete!";
+    if(countdownInterval) clearInterval(countdownInterval);
 }
 
 // --- Contract Read Functions ---
@@ -306,6 +206,7 @@ async function fetchAuctionRenderData() {
         contractState.minIncrementBps = minIncrementBpsOut;
         contractState.highestBid = highestBidOut;
         contractState.highestBidder = highestBidderAddressOut; // Storing the address
+        contractState.highestBidderFID = fidOfHighestBidderOut; // Store FID
         contractState.hasFirstBid = hasFirstBidOut;
         contractState.totalBids = totalBidsOut;
 
@@ -386,127 +287,12 @@ async function fetchUserStats() {
 
 // --- Contract Write Functions ---
 async function handlePlaceBid() {
-    console.log('handlePlaceBid called - Starting bid process');
-    if (!ethProvider || !viemClient || !currentUser.account || !currentUser.fid) {
-        console.log('Missing requirements:', { 
-            ethProvider: !!ethProvider, 
-            viemClient: !!viemClient, 
-            account: currentUser.account, 
-            fid: currentUser.fid 
-        });
-        if (bidStatusEl) bidStatusEl.textContent = "Wallet or FID not connected. Please connect to bid.";
-        return;
-    }
-    if (!bidAmountInput || !placeBidButton || !bidStatusEl) {
-        console.log('Missing DOM elements:', { 
-            bidAmountInput: !!bidAmountInput, 
-            placeBidButton: !!placeBidButton, 
-            bidStatusEl: !!bidStatusEl 
-        });
-        return;
-    }
-
-    const bidAmountEthText = bidAmountInput.value;
-    console.log('Processing bid amount:', bidAmountEthText);
-    let bidAmountWei;
-    try {
-        bidAmountWei = parseEther(bidAmountEthText);
-        if (bidAmountWei <= BigInt(0)) throw new Error("Bid amount must be greater than zero.");
-    } catch (e) {
-        console.error('Bid amount error:', e);
-        bidStatusEl.textContent = "Invalid bid amount. Please enter a valid number.";
-        bidStatusEl.style.color = '#e63946'; 
-        return;
-    }
-    
-    const nextMinBidWei = calculateNextValidBid();
-    console.log('Next minimum bid:', formatEther(nextMinBidWei));
-    if (bidAmountWei < nextMinBidWei) {
-        bidStatusEl.textContent = `Bid is below minimum. Minimum: ${formatEther(nextMinBidWei)} ETH.`;
+    // Auction is permanently over.
+    console.log("Bid attempt ignored: Auction has ended.");
+    if (bidStatusEl) {
+        bidStatusEl.textContent = "Bidding has ended.";
         bidStatusEl.style.color = '#e63946';
-        return;
     }
-
-    placeBidButton.textContent = "Submitting...";
-    bidStatusEl.textContent = "Processing transaction...";
-    bidStatusEl.style.color = '#00ffff';
-
-    try {
-        console.log('Preparing transaction data');
-        const data = encodeFunctionData({
-            abi: auctionAbi, 
-            functionName: 'placeBid', 
-            args: [BigInt(currentUser.fid)]
-        });
-
-        console.log('Sending transaction');
-        const txHash = await ethProvider.request({
-            method: 'eth_sendTransaction',
-            params: [{ 
-                from: currentUser.account, 
-                to: CONTRACT_ADDRESS, 
-                data, 
-                value: '0x' + bidAmountWei.toString(16) 
-            }]
-        });
-
-        console.log('Transaction sent:', txHash);
-        bidStatusEl.textContent = `Transaction submitted. Tx: ${txHash.substring(0,10)}...`;
-        bidStatusEl.style.color = '#4CAF50'; 
-        placeBidButton.textContent = "Processing...";
-        
-        // Subscribe to BidPlaced event
-        const unwatch = publicClient.watchEvent({
-            address: CONTRACT_ADDRESS,
-            event: {
-                type: 'event',
-                name: 'BidPlaced',
-                inputs: [
-                    { type: 'address', name: 'bidder', indexed: true },
-                    { type: 'uint256', name: 'amount' },
-                    { type: 'uint64', name: 'fid' }
-                ]
-            },
-            onLogs: (logs) => {
-                // Check if this is our transaction
-                const ourBid = logs.find(log => 
-                    log.transactionHash === txHash && 
-                    log.args.bidder.toLowerCase() === currentUser.account.toLowerCase()
-                );
-                
-                if (ourBid) {
-                    console.log('Bid confirmed:', ourBid);
-                    fetchAuctionRenderData();
-                    fetchUserStats();
-                    bidStatusEl.textContent = "Bid submitted!";
-                    placeBidButton.textContent = "Submit Bid";
-                    unwatch(); // Stop watching after our bid is confirmed
-                }
-            },
-            onError: (error) => {
-                console.error('Error watching for bid event:', error);
-                // Fallback to timeout if event watching fails
-                setTimeout(() => {
-                    fetchAuctionRenderData();
-                    fetchUserStats();
-                    bidStatusEl.textContent = "Bid submitted!";
-                    placeBidButton.textContent = "Submit Bid";
-                }, 5000);
-            }
-        });
-
-    } catch (error) {
-        console.error("Error during bid placement:", error);
-        let errorMsg = "Transaction failed or was rejected.";
-        if (error.message && error.message.toLowerCase().includes("user rejected")) {
-            errorMsg = "Transaction cancelled by user.";
-        } else if (error.customMessage || error.message) {
-            errorMsg = `Transaction Error: ${(error.customMessage || error.message)}`.substring(0,120);
-        }
-        bidStatusEl.textContent = errorMsg;
-        bidStatusEl.style.color = '#e63946';
-        placeBidButton.textContent = "Submit Bid";
-    } 
 }
 
 // Add function to fetch ETH price
@@ -541,44 +327,16 @@ function updateAllPriceDisplays() {
 
 // Update the HTML structure in the bid action area
 function updateBidActionArea() {
-    const bidActionArea = document.querySelector('.bid-action-area');
-    if (!bidActionArea) return;
-
-    const nextBidWei = calculateNextValidBid();
-    const minBidEth = formatEther(nextBidWei);
-    
-    // Update input value and attributes
+    // Auction is permanently over. Elements are configured by setAuctionEndedUI.
     if (bidAmountInput) {
-        bidAmountInput.value = minBidEth;
-        bidAmountInput.min = "0.001";
-        bidAmountInput.placeholder = `${minBidEth} ETH`;
-        
-        // Ensure the USD value span exists and update it
-        let bidUsdValue = document.getElementById('bid-usd-value');
-        if (!bidUsdValue) {
-            // Create a container for the input and USD value if it doesn't exist
-            let inputContainer = bidAmountInput.parentElement;
-            if (!inputContainer || !inputContainer.classList.contains('bid-input-container')) {
-                inputContainer = document.createElement('div');
-                inputContainer.className = 'bid-input-container';
-                inputContainer.style.display = 'flex';
-                inputContainer.style.alignItems = 'center';
-                inputContainer.style.gap = '12px';
-                bidAmountInput.parentNode.insertBefore(inputContainer, bidAmountInput);
-                inputContainer.appendChild(bidAmountInput);
-            }
-            
-            bidUsdValue = document.createElement('span');
-            bidUsdValue.id = 'bid-usd-value';
-            bidUsdValue.className = 'usd-value';
-            bidUsdValue.style.fontSize = '1.1em';
-            bidUsdValue.style.color = '#666';
-            bidUsdValue.style.display = 'flex';
-            bidUsdValue.style.alignItems = 'center';
-            inputContainer.appendChild(bidUsdValue);
-        }
-        updateBidUsdValue();
+        bidAmountInput.disabled = true;
+        bidAmountInput.placeholder = 'Auction has ended';
     }
+    if (placeBidButton) {
+        placeBidButton.textContent = 'Auction Over';
+    }
+    const bidUsdValue = document.getElementById('bid-usd-value');
+    if (bidUsdValue) bidUsdValue.textContent = ''; // Clear USD value next to input
 }
 
 // Update the updateBidUsdValue function to be more robust
@@ -594,3 +352,55 @@ function updateBidUsdValue() {
 
 // --- Start the app ---
 document.addEventListener('DOMContentLoaded', init); 
+
+// --- Renamed function for "Bidding Complete" state, now permanent ---
+function setAuctionEndedUI() {
+    console.log("Setting UI to permanent 'Auction Ended' state.");
+    if (timeLeftEl) timeLeftEl.textContent = "Bidding is complete!";
+    
+    if (bidAmountInput) {
+        bidAmountInput.disabled = true;
+        bidAmountInput.value = ''; // Clear any value
+        bidAmountInput.placeholder = 'Auction has ended';
+    }
+    if (placeBidButton) {
+        placeBidButton.textContent = 'Auction Over';
+        // No need to manage placeBidButton.onclick here if handlePlaceBid prevents action
+    }
+    
+    // Use contractState.highestBidderFID which should be populated by fetchAuctionRenderData
+    const winnerFidToDisplay = contractState.highestBidderFID && contractState.highestBidderFID > 0 
+                             ? contractState.highestBidderFID.toString() 
+                             : "the winner";
+    
+    let congratsMessage = `Bidding is complete! Congrats to FID ${winnerFidToDisplay}, can\'t wait to see what ideas you\'re thinking!`;
+
+    if (contractState.highestBid === BigInt(0)) {
+        congratsMessage = "Bidding is complete! No bids were placed.";
+    } else if (winnerFidToDisplay === "the winner" && (!contractState.highestBidderFID || contractState.highestBidderFID === BigInt(0))) {
+        // This case means there was a highest bid, but FID is not available/zero.
+        congratsMessage = "Bidding is complete! Congrats to the winner! (FID not available)";
+    }
+
+
+    if (bidStatusEl) {
+        bidStatusEl.textContent = congratsMessage;
+        bidStatusEl.style.color = '#00ffff'; 
+    }
+
+    if (nextValidBidEl) {
+        nextValidBidEl.textContent = "Auction Ended";
+    }
+
+    const bidUsdValue = document.getElementById('bid-usd-value');
+    if (bidUsdValue) bidUsdValue.textContent = '';
+
+
+    if (countdownInterval) clearInterval(countdownInterval);
+    
+    // Ensure detailed stats are still updated if possible
+    if (highestBidActualEl) highestBidActualEl.textContent = formatPriceWithUsd(contractState.highestBid);
+    if (highestBidderFidEl) highestBidderFidEl.textContent = contractState.highestBidderFID > 0 ? contractState.highestBidderFID.toString() : 'N/A';
+    // firstBidderFidEl is part of fetchAuctionRenderData and its logic can remain
+    if(totalBidsEl) totalBidsEl.textContent = contractState.totalBids > 0 ? contractState.totalBids.toString() : '0';
+} 
