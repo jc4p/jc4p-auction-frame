@@ -369,11 +369,14 @@ function setAuctionEndedUI() {
     }
     
     // Use contractState.highestBidderFID which should be populated by fetchAuctionRenderData
-    const winnerFidToDisplay = contractState.highestBidderFID && contractState.highestBidderFID > 0 
+    const winnerFidToDisplay = contractState.highestBidderFID && contractState.highestBidderFID > BigInt(0) 
                              ? contractState.highestBidderFID.toString() 
                              : "the winner";
     
-    let congratsMessage = `Bidding is complete! Congrats to FID ${winnerFidToDisplay}, can\'t wait to see what ideas you\'re thinking!`;
+    // Updated congratsMessage to style the specific phrase
+    const messagePart1 = `Bidding is complete! Congrats to FID ${winnerFidToDisplay}, `;
+    const messagePart2Styled = `<span style="color: #00ffff;">can\'t wait to see what ideas you\'re thinking!</span>`;
+    let congratsMessage = messagePart1 + messagePart2Styled;
 
     if (contractState.highestBid === BigInt(0)) {
         congratsMessage = "Bidding is complete! No bids were placed.";
@@ -384,7 +387,7 @@ function setAuctionEndedUI() {
 
 
     if (bidStatusEl) {
-        bidStatusEl.textContent = congratsMessage;
+        bidStatusEl.innerHTML = congratsMessage; // Changed from textContent to innerHTML
         bidStatusEl.style.color = '#00ffff'; 
     }
 
